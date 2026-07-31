@@ -1,0 +1,101 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+export interface LedgerTransaction {
+  id: string;
+  date: string;
+  contact: { id: string; name: string; category: string };
+  category: string;
+  description: string | null;
+  credit: string;
+  debit: string;
+  runningBalance: string;
+}
+
+export interface LedgerData {
+  project: { id: string; name: string; budget: string };
+  client: { id: string; name: string };
+  totals: { credit: string; debit: string; balance: string };
+  transactions: LedgerTransaction[];
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export function useLedger(projectId: string) {
+  return useQuery<LedgerData>({
+    queryKey: ["ledger", projectId],
+    queryFn: () => fetchJson(`/api/projects/${projectId}/transactions`),
+    enabled: !!projectId,
+  });
+}
+
+export function useCreateTransaction(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      date: string;
+      contactName: string;
+      contactCategory: string;
+      category: string;
+      description?: string;
+      credit: number | string;
+      debit: number | string;
+    }) =>
+      fetchJson(`/api/projects/${projectId}/transactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ledger", projectId] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+}
+
+export function useUpdateTransaction(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ transactionId, ...data }: {
+      transactionId: string;
+      contactName?: string;
+      contactCategory?: string;
+      category?: string;
+      description?: string;
+      credit?: number;
+      debit?: number;
+      date?: string;
+    }) =>
+      fetchJson(`/api/projects/${projectId}/transactions/${transactionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ledger", projectId] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+}
+
+export function useDeleteTransaction(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (transactionId: string) =>
+      fetchJson(`/api/projects/${projectId}/transactions/${transactionId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ledger", projectId] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+    },
+  });
+}
