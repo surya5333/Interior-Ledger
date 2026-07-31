@@ -147,16 +147,6 @@ export default function Sidebar() {
             <span>Settings</span>
           </Link>
 
-          {/* User */}
-          <div className="flex items-center gap-3 rounded-lg px-3 py-3 mt-2 border-t border-border pt-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-light text-primary text-sm font-semibold">
-              A
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-text truncate leading-tight">Anil Kumar</p>
-              <p className="text-xs text-muted leading-tight">Owner</p>
-            </div>
-          </div>
         </div>
       </aside>
     </>
