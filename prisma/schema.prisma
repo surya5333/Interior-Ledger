@@ -21,6 +21,7 @@ model Client {
 model Project {
   id           String        @id @default(cuid())
   name         String
+  location String?
   clientId     String        @map("client_id")
   budget       Decimal       @db.Decimal(12, 2)
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -43,21 +44,32 @@ model Contact {
   @@index([name])
 }
 
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  OTHER
+}
+
 model Transaction {
-  id          String   @id @default(cuid())
-  projectId   String   @map("project_id")
-  contactId   String   @map("contact_id")
-  category    String
-  description String?
-  date        DateTime
-  credit      Decimal  @default(0) @db.Decimal(12, 2)
-  debit       Decimal  @default(0) @db.Decimal(12, 2)
-  createdAt   DateTime @default(now()) @map("created_at")
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contact     Contact  @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  id              String      @id @default(cuid())
+  projectId       String      @map("project_id")
+  contactId       String?     @map("contact_id")
+  isClientPayment Boolean     @default(false) @map("is_client_payment")
+  category        String
+  description     String?
+  date            DateTime
+  credit          Decimal     @default(0) @db.Decimal(12, 2)
+  debit           Decimal     @default(0) @db.Decimal(12, 2)
+  paymentMode     PaymentMode @default(CASH)
+  paymentProofUrl String?     @map("payment_proof_url")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contact         Contact?    @relation(fields: [contactId], references: [id], onDelete: Restrict)
 
   @@index([projectId, date, createdAt])
   @@index([contactId, date])
+  @@index([isClientPayment, projectId])
 }
 
 model Settings {

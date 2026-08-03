@@ -9,6 +9,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, error, ...props }, ref) => {
+    const normalizedProps =
+      type !== "file" && Object.prototype.hasOwnProperty.call(props, "value")
+        ? { ...props, value: props.value ?? "" }
+        : props;
+
     return (
       <input
         type={type}
@@ -24,7 +29,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
-        {...props}
+        {...normalizedProps}
       />
     );
   }
@@ -37,6 +42,10 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, error, ...props }, ref) => {
+    const normalizedProps = Object.prototype.hasOwnProperty.call(props, "value")
+      ? { ...props, value: props.value ?? "" }
+      : props;
+
     return (
       <textarea
         className={cn(
@@ -50,7 +59,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           className
         )}
         ref={ref}
-        {...props}
+        {...normalizedProps}
       />
     );
   }

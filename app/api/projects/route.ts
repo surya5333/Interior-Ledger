@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const projectSchema = z.object({
   name: z.string().min(1),
   clientId: z.string().optional(),
+  location: z.string().optional(),
   clientName: z.string().optional(),
   budget: z.coerce.number().min(0),
 }).refine(
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const project = await prisma.project.create({
-      data: { name: body.name, clientId, budget: body.budget },
+      data: { name: body.name.trim(), clientId,location: body.location?.trim()||null, budget: body.budget },
     });
     return NextResponse.json(project, { status: 201 });
   } catch (error: any) {

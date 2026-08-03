@@ -17,6 +17,8 @@ export interface ContactDetail {
       date: string;
       category: string;
       description: string | null;
+      paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentProofUrl: string | null;
       credit: string;
       debit: string;
     }[];
@@ -77,6 +79,7 @@ export function useCreateContact() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }
@@ -105,6 +108,7 @@ export function useDeleteContact() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["contacts"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }

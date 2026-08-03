@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 const updateProjectSchema = z.object({
   name: z.string().min(1).optional(),
   clientName: z.string().optional(),
+  location: z.string().optional(),
   budget: z.coerce.number().min(0).optional(),
 });
 
@@ -52,7 +53,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const project = await prisma.project.update({
       where: { id },
       data: {
-        ...(body.name ? { name: body.name } : {}),
+        ...(body.name ? { name: body.name.trim() } : {}),
+        ...(body.location ? { location: body.location.trim() } : {}),
         ...(clientId ? { clientId } : {}),
         ...(body.budget !== undefined ? { budget: body.budget } : {}),
       },

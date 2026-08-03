@@ -9,10 +9,10 @@ import { toast } from "sonner";
 import { Plus, MoreHorizontal, Pencil, Trash2, Users as UsersIcon } from "lucide-react";
 
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "../../hooks/use-contacts";
+import { CategoryBadge } from "../../components/category-badge";
 import { PageHeader } from "../../components/page-header";
 import { SearchBar } from "../../components/search-bar";
 import { EmptyState } from "../../components/empty-state";
-import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Input, Label } from "../../components/ui/input";
 import { ConfirmDialog } from "../../components/confirm-dialog";
@@ -53,6 +53,8 @@ export default function ContactsPage() {
   const createMutation = useCreateContact();
   const updateMutation = useUpdateContact();
   const deleteMutation = useDeleteContact();
+  const categorySuggestions = Array.from(new Set(contacts.map((contact) => contact.category.trim()).filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
   const [query, setQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,7 +63,7 @@ export default function ContactsPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
-    defaultValues: { name: "", category: "Vendor", phone: "" },
+    defaultValues: { name: "", category: "", phone: "" },
   });
 
   const filteredContacts = contacts.filter((c) =>
@@ -72,7 +74,7 @@ export default function ContactsPage() {
 
   const openNewModal = () => {
     setEditingId(null);
-    reset({ name: "", category: "Vendor", phone: "" });
+    reset({ name: "", category: "", phone: "" });
     setIsModalOpen(true);
   };
 
@@ -158,7 +160,7 @@ export default function ContactsPage() {
                       </Link>
                     </DataTableCell>
                     <DataTableCell>
-                      <Badge variant="muted">{c.category}</Badge>
+                      <CategoryBadge category={c.category} />
                     </DataTableCell>
                     <DataTableCell className="text-muted">{c.phone || "—"}</DataTableCell>
                     <DataTableCell align="right">
@@ -208,11 +210,11 @@ export default function ContactsPage() {
             
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Input id="category" list="categories-list" {...register("category")} placeholder="e.g. Carpenter" error={!!errors.category} />
+              <Input id="category" list="categories-list" {...register("category")} placeholder="e.g. worker" error={!!errors.category} />
               <datalist id="categories-list">
-                <option value="Vendor" />
-                <option value="Labor" />
-                <option value="Architect" />
+                {categorySuggestions.map((category) => (
+                  <option key={category} value={category} />
+                ))}
               </datalist>
               {errors.category && <p className="text-xs text-danger">{errors.category.message}</p>}
             </div>

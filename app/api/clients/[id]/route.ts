@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClientLedger } from "../../../../lib/client-ledger";
 import { getPrisma } from "../../../../lib/prisma";
 import { z } from "zod";
 
@@ -10,15 +11,12 @@ const updateClientSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
 });
 
-/** GET client details with their projects */
+/** GET client details with projects and payment ledger */
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const client = await getPrisma().client.findUnique({
-    where: { id },
-    include: { projects: { orderBy: { createdAt: "desc" } } },
-  });
-  if (!client) return NextResponse.json({ error: "Client not found." }, { status: 404 });
-  return NextResponse.json(client);
+  const ledger = await getClientLedger(id);
+  if (!ledger) return NextResponse.json({ error: "Client not found." }, { status: 404 });
+  return NextResponse.json(ledger);
 }
 
 /** PATCH update client */

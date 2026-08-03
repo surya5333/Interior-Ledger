@@ -46,6 +46,7 @@ import {
 const projectSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   clientName: z.string().min(1, "Client is required"),
+  location: z.string().optional(),
   budget: z.coerce.number().min(0, "Budget must be a positive number"),
 });
 type ProjectFormData = z.infer<typeof projectSchema>;
@@ -64,23 +65,24 @@ export default function ProjectsPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema) as any,
-    defaultValues: { name: "", clientName: "", budget: 0 },
+    defaultValues: { name: "", clientName: "",location:"", budget: 0 },
   });
 
   const filteredProjects = projects.filter((p) =>
     p.name.toLowerCase().includes(query.toLowerCase()) ||
-    p.client?.name.toLowerCase().includes(query.toLowerCase())
+    p.client?.name.toLowerCase().includes(query.toLowerCase()) ||
+    p.location?.toLowerCase().includes(query.toLowerCase())
   );
 
   const openNewModal = () => {
     setEditingId(null);
-    reset({ name: "", clientName: "", budget: 0 });
+    reset({ name: "", clientName: "",location:"", budget: 0 });
     setIsModalOpen(true);
   };
 
   const openEditModal = (p: Project) => {
     setEditingId(p.id);
-    reset({ name: p.name, clientName: p.client?.name || "", budget: Number(p.budget) });
+    reset({ name: p.name, clientName: p.client?.name || "",location:p.location || "", budget: Number(p.budget) });
     setIsModalOpen(true);
   };
 
@@ -90,6 +92,7 @@ export default function ProjectsPage() {
         id: editingId,
         name: data.name,
         clientName: data.clientName.trim(),
+        location: data.location?.trim(),
         budget: data.budget,
       }, {
         onSuccess: () => {
@@ -101,7 +104,7 @@ export default function ProjectsPage() {
         }
       });
     } else {
-      createMutation.mutate({ name: data.name, clientName: data.clientName.trim(), budget: data.budget }, {
+      createMutation.mutate({ name: data.name, clientName: data.clientName.trim(),location: data.location?.trim(), budget: data.budget }, {
         onSuccess: () => {
           setIsModalOpen(false);
           toast.success("Project created successfully.");
@@ -148,6 +151,7 @@ export default function ProjectsPage() {
               <DataTableHeaderRow>
                 <DataTableHead>Project Name</DataTableHead>
                 <DataTableHead>Client</DataTableHead>
+                <DataTableHead>Location</DataTableHead>
                 <DataTableHead align="right">Budget</DataTableHead>
                 <DataTableHead>Created</DataTableHead>
                 <DataTableHead align="right">Actions</DataTableHead>
@@ -155,7 +159,7 @@ export default function ProjectsPage() {
             </DataTableHeader>
             <DataTableBody>
               {filteredProjects.length === 0 ? (
-                <DataTableEmpty colSpan={5}>No projects found matching your search.</DataTableEmpty>
+                <DataTableEmpty colSpan={6}>No projects found matching your search.</DataTableEmpty>
               ) : (
                 filteredProjects.map((p) => (
                   <DataTableRow key={p.id}>
@@ -165,6 +169,7 @@ export default function ProjectsPage() {
                       </Link>
                     </DataTableCell>
                     <DataTableCell className="text-muted">{p.client?.name || "—"}</DataTableCell>
+                    <DataTableCell className="text-muted">{p.location || "—"}</DataTableCell>
                     <DataTableCell align="right">
                       <MoneyText amount={p.budget} />
                     </DataTableCell>
@@ -232,6 +237,15 @@ export default function ProjectsPage() {
               />
               {errors.clientName && <p className="text-xs text-danger">{errors.clientName.message}</p>}
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+
+              <Input
+                id="location"
+                {...register("location")}
+                placeholder="e.g. MVP Colony, Visakhapatnam"
+              />
+            </div>    
 
             <div className="space-y-2">
               <Label htmlFor="budget">Budget (₹)</Label>

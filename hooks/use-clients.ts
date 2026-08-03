@@ -9,6 +9,24 @@ export interface Client {
   projects?: { id: string; name: string; budget: string | number; createdAt: string }[];
 }
 
+export interface ClientLedgerPayment {
+  id: string;
+  date: string;
+  project: { id: string; name: string };
+  category: string;
+  description: string | null;
+  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentProofUrl: string | null;
+  credit: string;
+}
+
+export interface ClientLedgerData {
+  client: Client;
+  projects: { id: string; name: string; budget: string | number; createdAt: string }[];
+  totals: { totalReceived: string; paymentCount: number };
+  payments: ClientLedgerPayment[];
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
@@ -26,7 +44,7 @@ export function useClients() {
 }
 
 export function useClient(id: string) {
-  return useQuery<Client>({
+  return useQuery<ClientLedgerData>({
     queryKey: ["client", id],
     queryFn: () => fetchJson(`/api/clients/${id}`),
     enabled: !!id,
@@ -45,6 +63,7 @@ export function useCreateClient() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }
@@ -73,6 +92,7 @@ export function useDeleteClient() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }

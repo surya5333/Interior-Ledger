@@ -24,10 +24,11 @@ const s = StyleSheet.create({
   th: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#777a73", textTransform: "uppercase" as any, letterSpacing: 0.5 },
   td: { fontSize: 8 },
   colDate: { width: "12%" },
-  colContact: { width: "18%" },
-  colCategory: { width: "14%" },
-  colDesc: { width: "20%" },
-  colMoney: { width: "12%", textAlign: "right" },
+  colContact: { width: "15%" },
+  colCategory: { width: "13%" },
+  colPayment: { width: "14%" },
+  colDesc: { width: "14%" },
+  colMoney: { width: "10%", textAlign: "right" },
   footer: { marginTop: 30 },
   signatureArea: { flexDirection: "row", justifyContent: "space-between", marginTop: 50 },
   signatureWrapper: { width: "40%" },
@@ -43,6 +44,8 @@ type LedgerTransaction = {
   contact: { id: string; name: string; category: string; };
   category: string;
   description?: string | null;
+  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentProofUrl: string | null;
   credit: string;
   debit: string;
   runningBalance: string;
@@ -67,6 +70,19 @@ function getInitials(name: string): string {
     .slice(0, 2)
     .map((w) => w[0].toUpperCase())
     .join("");
+}
+
+function formatPaymentLabel(transaction: LedgerTransaction) {
+  const labelMap: Record<LedgerTransaction["paymentMode"], string> = {
+    CASH: "Cash",
+    UPI: "UPI",
+    CARD: "Card",
+    OTHER: "Other",
+  };
+
+  return transaction.paymentMode === "UPI" && transaction.paymentProofUrl
+    ? `${labelMap[transaction.paymentMode]} (proof attached)`
+    : labelMap[transaction.paymentMode];
 }
 
 export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledger: LedgerData; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
@@ -127,6 +143,7 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
           <Text style={[s.th, s.colDate]}>Date</Text>
           <Text style={[s.th, s.colContact]}>Contact</Text>
           <Text style={[s.th, s.colCategory]}>Category</Text>
+          <Text style={[s.th, s.colPayment]}>Payment</Text>
           <Text style={[s.th, s.colDesc]}>Description</Text>
           <Text style={[s.th, s.colMoney]}>Credit</Text>
           <Text style={[s.th, s.colMoney]}>Debit</Text>
@@ -138,6 +155,7 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
             <Text style={[s.td, s.colDate]}>{new Date(t.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
             <Text style={[s.td, s.colContact]}>{t.contact.name}</Text>
             <Text style={[s.td, s.colCategory]}>{t.category}</Text>
+            <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(t)}</Text>
             <Text style={[s.td, s.colDesc]}>{t.description || "—"}</Text>
             <Text style={[s.td, s.colMoney, s.creditColor]}>{Number(t.credit) ? `Rs. ${money(t.credit)}` : "—"}</Text>
             <Text style={[s.td, s.colMoney]}>{Number(t.debit) ? `Rs. ${money(t.debit)}` : "—"}</Text>

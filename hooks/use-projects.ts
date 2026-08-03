@@ -4,6 +4,7 @@ export interface Project {
   id: string;
   name: string;
   clientId: string;
+  location: string | null;
   budget: string | number;
   createdAt: string;
   client?: { id: string; name: string };
@@ -36,7 +37,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; clientName: string; budget: number }) =>
+    mutationFn: (data: { name: string; clientName: string; location?: string; budget: number }) =>
       fetchJson("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,6 +46,7 @@ export function useCreateProject() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
     },
   });
@@ -53,7 +55,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; budget?: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; location?: string; budget?: number }) =>
       fetchJson(`/api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -62,6 +64,7 @@ export function useUpdateProject() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
     },
   });
@@ -75,6 +78,7 @@ export function useDeleteProject() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }

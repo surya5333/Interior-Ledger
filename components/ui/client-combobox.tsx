@@ -13,7 +13,7 @@ interface ClientOption {
 
 interface ClientComboboxProps {
   clients: ClientOption[];
-  value: string; // The display name
+  value?: string; // The display name
   onChange: (name: string) => void;
   error?: boolean;
 }
@@ -25,7 +25,7 @@ export function ClientCombobox({ clients, value, onChange, error }: ClientCombob
 
   // Sync the external value into the search field when modal opens with an edit
   React.useEffect(() => {
-    setSearch(value);
+    setSearch(value ?? "");
   }, [value]);
 
   // Close dropdown on outside click

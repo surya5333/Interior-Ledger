@@ -3,9 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 export interface LedgerTransaction {
   id: string;
   date: string;
+  isClientPayment?: boolean;
   contact: { id: string; name: string; category: string };
   category: string;
   description: string | null;
+  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentProofUrl: string | null;
   credit: string;
   debit: string;
   runningBalance: string;
@@ -40,12 +43,15 @@ export function useCreateTransaction(projectId: string) {
   return useMutation({
     mutationFn: (data: {
       date: string;
-      contactName: string;
-      contactCategory: string;
-      category: string;
+      contactName?: string;
+      contactCategory?: string;
+      category?: string;
       description?: string;
       credit: number | string;
       debit: number | string;
+      paymentMode?: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentProofUrl?: string;
+      isClientPayment?: boolean;
     }) =>
       fetchJson(`/api/projects/${projectId}/transactions`, {
         method: "POST",
@@ -55,7 +61,9 @@ export function useCreateTransaction(projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ledger", projectId] });
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["client"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }
@@ -72,6 +80,9 @@ export function useUpdateTransaction(projectId: string) {
       credit?: number;
       debit?: number;
       date?: string;
+      paymentMode?: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentProofUrl?: string;
+      isClientPayment?: boolean;
     }) =>
       fetchJson(`/api/projects/${projectId}/transactions/${transactionId}`, {
         method: "PATCH",
@@ -81,7 +92,9 @@ export function useUpdateTransaction(projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ledger", projectId] });
       qc.invalidateQueries({ queryKey: ["contacts"] });
+      qc.invalidateQueries({ queryKey: ["client"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }
@@ -95,7 +108,9 @@ export function useDeleteTransaction(projectId: string) {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ledger", projectId] });
+      qc.invalidateQueries({ queryKey: ["client"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
     },
   });
 }

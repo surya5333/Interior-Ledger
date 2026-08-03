@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useMemo, useState, useEffect } from "react";
+import { use, useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,17 +10,19 @@ import { Download, Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useLedger, useCreateTransaction, useUpdateTransaction, useDeleteTransaction, LedgerTransaction } from "../../../hooks/use-ledger";
 import { useContacts } from "../../../hooks/use-contacts";
 import { useSettings } from "../../../hooks/use-settings";
+import { CategoryBadge } from "../../../components/category-badge";
+import { PaymentModeBadge } from "../../../components/payment-mode-badge";
 import { PageHeader } from "../../../components/page-header";
 import { SummaryStrip } from "../../../components/summary-strip";
 import { SearchBar } from "../../../components/search-bar";
-import { MoneyText, formatMoney } from "../../../components/money-text";
-import { Badge } from "../../../components/ui/badge";
+import { MoneyText } from "../../../components/money-text";
 import { Button } from "../../../components/ui/button";
 import { Input, Label } from "../../../components/ui/input";
 import { NativeSelect } from "../../../components/ui/select";
 import { ConfirmDialog } from "../../../components/confirm-dialog";
 import { PageSkeleton } from "../../../components/ui/skeleton";
 import { cn } from "../../../lib/cn";
+import { supabase } from "../../../lib/supabase";
 import {
   DataTable,
   DataTableHeader,
@@ -38,15 +40,71 @@ import {
   DropdownMenuItem,
 } from "../../../components/ui/dropdown-menu";
 
-const transactionSchema = z.object({
-  date: z.string().min(1, "Date is required"),
-  contactName: z.string().min(1, "Contact is required"),
-  category: z.string().min(1, "Category is required"),
-  description: z.string().optional(),
-  type: z.enum(["debit", "credit"]),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-});
+const paymentModeOptions = [
+  { value: "CASH", label: "Cash" },
+  { value: "UPI", label: "UPI" },
+  { value: "CARD", label: "Card" },
+  { value: "OTHER", label: "Other" },
+] as const;
+
+const CLIENT_PAYMENT_CATEGORY = "Payment";
+
+const transactionSchema = z
+  .object({
+    paymentFromClient: z.boolean(),
+    date: z.string().min(1, "Date is required"),
+    contactName: z.string(),
+    category: z.string(),
+    description: z.string().optional(),
+    type: z.enum(["debit", "credit"]),
+    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    paymentMode: z.enum(["CASH", "UPI", "CARD", "OTHER"]).default("CASH"),
+    paymentProofUrl: z.string().url().optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    if (data.paymentFromClient) {
+      if (data.type !== "credit") {
+        ctx.addIssue({
+          code: "custom",
+          message: "Client payments must be recorded as credit.",
+          path: ["type"],
+        });
+      }
+    } else {
+      if (!data.contactName.trim()) {
+        ctx.addIssue({ code: "custom", message: "Contact is required.", path: ["contactName"] });
+      }
+      if (!data.category.trim()) {
+        ctx.addIssue({ code: "custom", message: "Category is required.", path: ["category"] });
+      }
+    }
+  });
 type TransactionFormData = z.infer<typeof transactionSchema>;
+
+function getDefaultTransactionValues(clientName = ""): TransactionFormData {
+  return {
+    paymentFromClient: true,
+    date: new Date().toISOString().slice(0, 10),
+    contactName: clientName,
+    category: CLIENT_PAYMENT_CATEGORY,
+    description: "",
+    type: "credit",
+    amount: 0,
+    paymentMode: "CASH",
+    paymentProofUrl: "",
+  };
+}
+
+function sanitizeFileName(fileName: string) {
+  const sanitized = fileName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return sanitized || "payment-proof";
+}
 
 export default function ProjectLedgerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -61,21 +119,72 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
   const [categoryFilter, setCategoryFilter] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const lastContactWorkflowRef = useRef<Pick<TransactionFormData, "contactName" | "category" | "type">>({
+    contactName: "",
+    category: "",
+    type: "debit",
+  });
+  const suppressWorkflowSyncRef = useRef(false);
 
   // Form for the sticky bottom bar
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransactionFormData>({
+  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema) as any,
-    defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
-      contactName: "",
-      category: "",
-      description: "",
-      type: "debit",
-      amount: 0,
-    },
+    defaultValues: getDefaultTransactionValues(),
   });
   
   const entryType = watch("type");
+  const paymentFromClient = watch("paymentFromClient");
+  const paymentMode = watch("paymentMode");
+  const paymentProofUrl = watch("paymentProofUrl");
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+
+  const resetTransactionForm = useCallback(() => {
+    suppressWorkflowSyncRef.current = true;
+    lastContactWorkflowRef.current = {
+      contactName: "",
+      category: "",
+      type: "debit",
+    };
+    reset(getDefaultTransactionValues(ledger?.client?.name ?? ""));
+    setEditingId(null);
+    setUploadError(null);
+  }, [reset, ledger?.client?.name]);
+
+  useEffect(() => {
+    if (!ledger) return;
+    if (suppressWorkflowSyncRef.current) {
+      suppressWorkflowSyncRef.current = false;
+      return;
+    }
+
+    if (paymentFromClient) {
+      const currentValues = getValues();
+      lastContactWorkflowRef.current = {
+        contactName: (currentValues.contactName || "").trim() || lastContactWorkflowRef.current.contactName || "",
+        category:
+          ((currentValues.category || "").trim() && currentValues.category !== CLIENT_PAYMENT_CATEGORY
+            ? currentValues.category
+            : lastContactWorkflowRef.current.category) || "",
+        type: currentValues.type || "debit",
+      };
+      setValue("contactName", ledger?.client?.name ?? "", { shouldDirty: false });
+      setValue("category", CLIENT_PAYMENT_CATEGORY, { shouldDirty: false });
+      setValue("type", "credit", { shouldDirty: false });
+    } else {
+      setValue("contactName", lastContactWorkflowRef.current.contactName ?? "", { shouldDirty: false });
+      setValue("category", lastContactWorkflowRef.current.category ?? "", { shouldDirty: false });
+      setValue("type", lastContactWorkflowRef.current.type ?? "debit", { shouldDirty: false });
+    }
+  }, [getValues, ledger, paymentFromClient, setValue]);
+
+  useEffect(() => {
+    if (paymentMode !== "UPI" && paymentProofUrl) {
+      setValue("paymentProofUrl", "", { shouldDirty: true });
+      setUploadError(null);
+    }
+  }, [paymentMode, paymentProofUrl, setValue]);
 
   const visibleTransactions = useMemo(() => {
     if (!ledger) return [];
@@ -100,22 +209,61 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
     return Array.from(new Set(ledger.transactions.map((x) => x.category)));
   }, [ledger]);
 
+  const handleProofUpload = useCallback(async (file: File) => {
+    try {
+      setUploadingProof(true);
+      setUploadError(null);
+
+      const filePath = `transactions/${id}/${Date.now()}-${sanitizeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("uploads")
+        .upload(filePath, file, { upsert: false });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from("uploads").getPublicUrl(filePath);
+      setValue("paymentProofUrl", data.publicUrl, { shouldDirty: true, shouldValidate: true });
+      toast.success("UPI screenshot uploaded successfully.");
+    } catch (error: any) {
+      const message = error?.message || "Failed to upload UPI screenshot.";
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      setUploadingProof(false);
+    }
+  }, [id, setValue]);
+
   const onSubmit = (data: TransactionFormData) => {
-    const payload = {
-      date: data.date,
-      contactName: data.contactName,
-      contactCategory: "Vendor",
-      category: data.category,
-      description: data.description,
-      credit: data.type === "credit" ? data.amount : 0,
-      debit: data.type === "debit" ? data.amount : 0,
-    };
+    const payload = data.paymentFromClient
+      ? {
+          date: data.date,
+          isClientPayment: true,
+          category: CLIENT_PAYMENT_CATEGORY,
+          description: data.description,
+          credit: data.amount,
+          debit: 0,
+          paymentMode: data.paymentMode,
+          paymentProofUrl: data.paymentMode === "UPI" ? data.paymentProofUrl || undefined : undefined,
+        }
+      : {
+          date: data.date,
+          isClientPayment: false,
+          contactName: data.contactName,
+          contactCategory: data.category,
+          category: data.category,
+          description: data.description,
+          credit: data.type === "credit" ? data.amount : 0,
+          debit: data.type === "debit" ? data.amount : 0,
+          paymentMode: data.paymentMode,
+          paymentProofUrl: data.paymentMode === "UPI" ? data.paymentProofUrl || undefined : undefined,
+        };
 
     if (editingId) {
       updateMutation.mutate({ transactionId: editingId, ...payload }, {
         onSuccess: () => {
-          setEditingId(null);
-          reset({ date: new Date().toISOString().slice(0, 10), contactName: "", category: "", description: "", type: "debit", amount: 0 });
+          resetTransactionForm();
           toast.success("Transaction updated successfully.");
         },
         onError: (err: any) => {
@@ -125,7 +273,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
     } else {
       createMutation.mutate(payload, {
         onSuccess: () => {
-          reset({ date: new Date().toISOString().slice(0, 10), contactName: "", category: "", description: "", type: "debit", amount: 0 });
+          resetTransactionForm();
           toast.success("Transaction added successfully.");
         },
         onError: (err: any) => {
@@ -137,23 +285,35 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
 
   const handleEdit = (t: LedgerTransaction) => {
     setEditingId(t.id);
+    setUploadError(null);
+    suppressWorkflowSyncRef.current = true;
+    lastContactWorkflowRef.current = t.isClientPayment
+      ? { contactName: "", category: "", type: "debit" }
+      : {
+          contactName: t.contact?.name ?? "",
+          category: t.contact?.category ?? "",
+          type: Number(t.credit) > 0 ? "credit" : "debit",
+        };
     const isCredit = Number(t.credit) > 0;
     reset({
-      date: new Date(t.date).toISOString().slice(0, 10),
-      contactName: t.contact.name,
-      category: t.category,
-      description: t.description || "",
+      ...getDefaultTransactionValues(ledger?.client?.name ?? ""),
+      paymentFromClient: Boolean(t.isClientPayment),
+      date: t.date ? new Date(t.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      contactName: t.contact?.name ?? "",
+      category: t.isClientPayment ? CLIENT_PAYMENT_CATEGORY : (t.category ?? t.contact?.category ?? ""),
+      description: t.description ?? "",
       type: isCredit ? "credit" : "debit",
       amount: isCredit ? Number(t.credit) : Number(t.debit),
+      paymentMode: t.paymentMode ?? "CASH",
+      paymentProofUrl: t.paymentProofUrl ?? "",
     });
     // Scroll to bottom
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
   
   const cancelEdit = () => {
-      setEditingId(null);
-      reset({ date: new Date().toISOString().slice(0, 10), contactName: "", category: "", description: "", type: "debit", amount: 0 });
-  }
+    resetTransactionForm();
+  };
 
   const exportPDF = useCallback(async () => {
     if (!ledger) return;
@@ -230,6 +390,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
               <DataTableHead>Date</DataTableHead>
               <DataTableHead>Contact</DataTableHead>
               <DataTableHead>Category</DataTableHead>
+              <DataTableHead>Payment</DataTableHead>
               <DataTableHead>Description</DataTableHead>
               <DataTableHead align="right">Credit</DataTableHead>
               <DataTableHead align="right">Debit</DataTableHead>
@@ -239,7 +400,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
           </DataTableHeader>
           <DataTableBody>
             {visibleTransactions.length === 0 ? (
-              <DataTableEmpty colSpan={8}>No transactions found.</DataTableEmpty>
+              <DataTableEmpty colSpan={9}>No transactions found.</DataTableEmpty>
             ) : (
               visibleTransactions.map((t) => (
                 <DataTableRow key={t.id}>
@@ -248,7 +409,22 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   </DataTableCell>
                   <DataTableCell className="font-medium">{t.contact.name}</DataTableCell>
                   <DataTableCell>
-                    <Badge variant="muted">{t.category}</Badge>
+                    <CategoryBadge category={t.category} />
+                  </DataTableCell>
+                  <DataTableCell>
+                    <div className="flex flex-col items-start gap-1">
+                      <PaymentModeBadge paymentMode={t.paymentMode} />
+                      {t.paymentMode === "UPI" && t.paymentProofUrl ? (
+                        <a
+                          href={t.paymentProofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          View proof
+                        </a>
+                      ) : null}
+                    </div>
                   </DataTableCell>
                   <DataTableCell className="text-muted text-sm">{t.description || "—"}</DataTableCell>
                   <DataTableCell align="right">
@@ -295,54 +471,146 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                  <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-6 px-2 text-xs">Cancel Edit</Button>
              )}
           </div>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-wrap lg:flex-nowrap items-end gap-3">
-            <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
-              <Label htmlFor="date" className="text-xs">Date</Label>
-              <Input id="date" type="date" {...register("date")} className="h-10 text-sm" error={!!errors.date} />
-            </div>
-            
-            <div className="flex-1 min-w-[140px] space-y-1.5">
-              <Label htmlFor="type" className="text-xs">Type</Label>
-              <NativeSelect 
-                id="type" 
-                {...register("type")} 
-                className={cn("h-10 text-sm", entryType === "credit" ? "text-credit" : "text-debit")}
-                error={!!errors.type}
-              >
-                <option value="debit">Debit (Spent)</option>
-                <option value="credit">Credit (Received)</option>
-              </NativeSelect>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <label className="flex items-center gap-2.5 text-sm font-medium text-text cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="size-4 rounded border-border text-primary focus:ring-primary"
+                checked={watch("paymentFromClient") ?? false}
+                {...register("paymentFromClient")}
+              />
+              Payment Received From Client
+            </label>
+
+            <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
+              <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
+                <Label htmlFor="date" className="text-xs">Date</Label>
+                <Input id="date" type="date" value={watch("date") ?? ""} {...register("date")} className="h-10 text-sm" error={!!errors.date} />
+              </div>
+
+              {!paymentFromClient ? (
+                <div className="flex-1 min-w-[140px] space-y-1.5">
+                  <Label htmlFor="type" className="text-xs">Type</Label>
+                  <NativeSelect
+                    id="type"
+                    value={watch("type") ?? "debit"}
+                    {...register("type")}
+                    className={cn("h-10 text-sm", entryType === "credit" ? "text-credit" : "text-debit")}
+                    error={!!errors.type}
+                  >
+                    <option value="debit">Debit (Spent)</option>
+                    <option value="credit">Credit (Received)</option>
+                  </NativeSelect>
+                </div>
+              ) : null}
+
+              {paymentFromClient ? (
+                <div className="flex-1 min-w-[160px] space-y-1.5">
+                  <Label htmlFor="clientName" className="text-xs">Client</Label>
+                  <Input
+                    id="clientName"
+                    value={ledger?.client?.name ?? ""}
+                    readOnly
+                    className="h-10 text-sm bg-[#FAFAF8] cursor-not-allowed"
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-w-[160px] space-y-1.5">
+                  <Label htmlFor="contactName" className="text-xs">Contact</Label>
+                  <Input id="contactName" list="contact-list" value={watch("contactName") ?? ""} {...register("contactName")} placeholder="Name..." className="h-10 text-sm" error={!!errors.contactName} />
+                  <datalist id="contact-list">
+                    {contacts.map((c) => <option key={c.id} value={c.name} />)}
+                  </datalist>
+                </div>
+              )}
+
+              <div className="flex-1 min-w-[140px] space-y-1.5">
+                <Label htmlFor="category" className="text-xs">Category</Label>
+                <Input
+                  id="category"
+                  list={paymentFromClient ? undefined : "category-list"}
+                  value={watch("category") ?? ""}
+                  {...register("category")}
+                  placeholder="e.g. Labor"
+                  readOnly={paymentFromClient}
+                  className={cn("h-10 text-sm", paymentFromClient && "bg-[#FAFAF8] cursor-not-allowed")}
+                  error={!!errors.category}
+                />
+                {!paymentFromClient ? (
+                  <datalist id="category-list">
+                    {uniqueCategories.map((c) => <option key={c} value={c} />)}
+                  </datalist>
+                ) : null}
+              </div>
+
+              <div className="flex-1 min-w-[140px] space-y-1.5">
+                <Label htmlFor="paymentMode" className="text-xs">Payment Mode</Label>
+                <NativeSelect
+                  id="paymentMode"
+                  value={watch("paymentMode") ?? "CASH"}
+                  {...register("paymentMode")}
+                  className="h-10 text-sm"
+                  error={!!errors.paymentMode}
+                >
+                  {paymentModeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </NativeSelect>
+              </div>
+
+              <div className="flex-[1.5] min-w-[180px] space-y-1.5">
+                <Label htmlFor="description" className="text-xs">Description</Label>
+                <Input id="description" value={watch("description") ?? ""} {...register("description")} placeholder="Optional details..." className="h-10 text-sm" error={!!errors.description} />
+              </div>
+
+              <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
+                <Label htmlFor="amount" className="text-xs">Amount (₹)</Label>
+                <Input id="amount" type="number" step="0.01" value={watch("amount") ?? ""} {...register("amount")} placeholder="0.00" className="h-10 text-sm font-[tabular-nums]" error={!!errors.amount} />
+              </div>
+
+              <Button type="submit" size="default" className="h-10 shrink-0 min-w-[100px]" loading={isSubmitting || uploadingProof} disabled={uploadingProof}>
+                {editingId ? "Save" : "Add Entry"}
+              </Button>
             </div>
 
-            <div className="flex-1 min-w-[160px] space-y-1.5">
-              <Label htmlFor="contactName" className="text-xs">Contact</Label>
-              <Input id="contactName" list="contact-list" {...register("contactName")} placeholder="Name..." className="h-10 text-sm" error={!!errors.contactName} />
-              <datalist id="contact-list">
-                {contacts.map((c) => <option key={c.id} value={c.name} />)}
-              </datalist>
-            </div>
+            {paymentMode === "UPI" ? (
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                  <div className="min-w-[220px] flex-1 space-y-1.5">
+                    <Label htmlFor="paymentProof" className="text-xs">Upload UPI Screenshot</Label>
+                    <Input
+                      key={`${editingId ?? "new"}-${paymentMode}-${paymentProofUrl ? "has-proof" : "no-proof"}`}
+                      id="paymentProof"
+                      type="file"
+                      accept="image/*"
+                      className="h-10 text-sm"
+                      disabled={uploadingProof || isSubmitting}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) {
+                          void handleProofUpload(file);
+                        }
+                      }}
+                    />
+                    <input type="hidden" value={watch("paymentProofUrl") ?? ""} {...register("paymentProofUrl")} />
+                    <p className="text-xs text-muted">
+                      Upload an image proof for UPI payments. You can submit without it and add or replace it later.
+                    </p>
+                    {uploadingProof ? <p className="text-xs text-muted">Uploading screenshot...</p> : null}
+                    {uploadError ? <p className="text-xs text-danger">{uploadError}</p> : null}
+                  </div>
 
-            <div className="flex-1 min-w-[140px] space-y-1.5">
-              <Label htmlFor="category" className="text-xs">Category</Label>
-              <Input id="category" list="category-list" {...register("category")} placeholder="e.g. Labor" className="h-10 text-sm" error={!!errors.category} />
-              <datalist id="category-list">
-                {uniqueCategories.map((c) => <option key={c} value={c} />)}
-              </datalist>
-            </div>
-
-            <div className="flex-[1.5] min-w-[180px] space-y-1.5">
-              <Label htmlFor="description" className="text-xs">Description</Label>
-              <Input id="description" {...register("description")} placeholder="Optional details..." className="h-10 text-sm" error={!!errors.description} />
-            </div>
-
-            <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
-              <Label htmlFor="amount" className="text-xs">Amount (₹)</Label>
-              <Input id="amount" type="number" step="0.01" {...register("amount")} placeholder="0.00" className="h-10 text-sm font-[tabular-nums]" error={!!errors.amount} />
-            </div>
-
-            <Button type="submit" size="default" className="h-10 shrink-0 min-w-[100px]" loading={createMutation.isPending || updateMutation.isPending}>
-              {editingId ? "Save" : "Add Entry"}
-            </Button>
+                  {paymentProofUrl ? (
+                    <div className="w-full max-w-[280px] space-y-2">
+                      <p className="text-xs font-medium text-text">Current Preview</p>
+                      <div className="overflow-hidden rounded-lg border border-border bg-white">
+                        <img src={paymentProofUrl} alt="UPI payment proof preview" className="h-32 w-full object-cover" />
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </form>
         </div>
       </div>

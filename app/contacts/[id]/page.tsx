@@ -5,10 +5,10 @@ import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 
 import { useContact } from "../../../hooks/use-contacts";
+import { CategoryBadge } from "../../../components/category-badge";
 import { PageHeader } from "../../../components/page-header";
 import { SummaryStrip } from "../../../components/summary-strip";
 import { EmptyState } from "../../../components/empty-state";
-import { Badge } from "../../../components/ui/badge";
 import { MoneyText, formatMoney } from "../../../components/money-text";
 import { PageSkeleton } from "../../../components/ui/skeleton";
 import {
@@ -37,7 +37,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
         title={contact.name}
         subtitle={
           <span className="flex items-center gap-2 mt-1">
-            <Badge variant="muted">{contact.category}</Badge>
+            <CategoryBadge category={contact.category} />
             {contact.phone && <span className="text-muted">· {contact.phone}</span>}
           </span> as any
         }
@@ -102,7 +102,7 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
                           {new Date(t.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                         </DataTableCell>
                         <DataTableCell>
-                          <Badge variant="muted">{t.category}</Badge>
+                          <CategoryBadge category={t.category} />
                         </DataTableCell>
                         <DataTableCell className="text-muted text-sm">{t.description || "—"}</DataTableCell>
                         <DataTableCell align="right">

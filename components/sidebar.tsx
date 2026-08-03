@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
   Home,
+  BarChart3,
   FolderKanban,
   Users,
   Building2,
@@ -17,6 +18,7 @@ import { useSettings } from "../hooks/use-settings";
 
 const navItems = [
   { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/" },
+  { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview") },
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p.startsWith("/projects") },
   { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
