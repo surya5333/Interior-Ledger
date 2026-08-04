@@ -1,10 +1,12 @@
 "use client";
 
-import { use } from "react";
+import { use, useCallback } from "react";
 import Link from "next/link";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban, Download } from "lucide-react";
+import { toast } from "sonner";
 
 import { useClient } from "../../../hooks/use-clients";
+import { useSettings } from "../../../hooks/use-settings";
 import { PageHeader } from "../../../components/page-header";
 import { SummaryStrip } from "../../../components/summary-strip";
 import { EmptyState } from "../../../components/empty-state";
@@ -27,6 +29,32 @@ import {
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, isLoading } = useClient(id);
+  const { data: settings } = useSettings();
+
+  const exportPDF = useCallback(async () => {
+    if (!data) return;
+    try {
+      const [{ pdf }, { ClientPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../../../components/client-pdf"),
+      ]);
+      const companyName = settings?.companyName || "Ledger";
+      const logoUrl = settings?.logoUrl;
+      const signatureUrl = settings?.signatureUrl;
+
+      const rawBlob = await pdf(<ClientPDF data={data} companyName={companyName} logoUrl={logoUrl} signatureUrl={signatureUrl} />).toBlob();
+      const blob = new Blob([rawBlob], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.client.name.replace(/\s+/g, "_")}_Summary.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("PDF generation failed", err);
+      toast.error(`Failed to generate PDF: ${err.message || err}`);
+    }
+  }, [data, settings]);
 
   if (isLoading) return <PageSkeleton />;
   if (!data) return <div className="text-muted">Client not found.</div>;
@@ -39,7 +67,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         breadcrumbItems={[{ label: "Clients", href: "/clients" }, { label: client.name }]}
         title={client.name}
         subtitle={[client.phone, client.email].filter(Boolean).join(" · ") || "No contact info provided"}
-      />
+      >
+        <Button variant="secondary" onClick={exportPDF}>
+          <Download className="size-4 mr-2" />
+          Download PDF
+        </Button>
+      </PageHeader>
 
       <SummaryStrip
         items={[

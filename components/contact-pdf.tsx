@@ -1,4 +1,5 @@
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { ContactDetail } from "../hooks/use-contacts";
 import { registerPdfFonts, formatCurrency } from "../lib/pdf-utils";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -12,6 +13,7 @@ const s = StyleSheet.create({
   brandMark: { width: 32, height: 32, backgroundColor: "#31563d", borderRadius: 2, justifyContent: "center", alignItems: "center", marginRight: 10 },
   brandText: { color: "#fff", fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" as any },
   companyName: { fontSize: 14, fontFamily: "NotoSans", fontWeight: "bold" as any },
+  companyContact: { fontSize: 9, color: "#71766f", marginTop: 2 },
   divider: { height: 1, backgroundColor: "#dcd9d3", marginVertical: 10 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
   metaLabel: { color: "#71766f", fontSize: 8, textTransform: "uppercase" as any, letterSpacing: 0.5 },
@@ -24,13 +26,14 @@ const s = StyleSheet.create({
   tableHeader: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#dcd9d3", paddingBottom: 6, marginBottom: 4 },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#eeece7", paddingVertical: 6 },
   th: { fontSize: 7, fontFamily: "NotoSans", fontWeight: "bold" as any, color: "#777a73", textTransform: "uppercase" as any, letterSpacing: 0.5 },
-  td: { fontSize: 8, fontFamily: "NotoSans" },
-  colDate: { width: "12%" },
-  colContact: { width: "15%" },
-  colCategory: { width: "13%" },
-  colPayment: { width: "14%" },
-  colDesc: { width: "14%" },
-  colMoney: { width: "10%", textAlign: "right" },
+  td: { fontSize: 8 },
+  colDate: { width: "10%" },
+  colProject: { width: "15%" },
+  colCategory: { width: "12%" },
+  colPayment: { width: "12%" },
+  colDesc: { width: "15%" },
+  colAmount: { width: "12%", textAlign: "right" },
+  colBalance: { width: "12%", textAlign: "right" },
   footer: { marginTop: 30 },
   signatureArea: { flexDirection: "row", justifyContent: "space-between", marginTop: 50 },
   signatureWrapper: { width: "40%" },
@@ -39,26 +42,6 @@ const s = StyleSheet.create({
   signatureLabel: { fontSize: 8, color: "#71766f" },
   pageNumber: { position: "absolute", bottom: 25, right: 40, fontSize: 7, color: "#71766f" },
 });
-
-type LedgerTransaction = {
-  id: string;
-  date: string;
-  contact: { id: string; name: string; category: string; };
-  category: string;
-  description?: string | null;
-  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
-  paymentProofUrl: string | null;
-  credit: string;
-  debit: string;
-  runningBalance: string;
-};
-
-type LedgerData = {
-  project: { id: string; name: string; budget: string };
-  client: { id: string; name: string };
-  totals: { credit: string; debit: string; balance: string };
-  transactions: LedgerTransaction[];
-};
 
 function getInitials(name: string): string {
   return name
@@ -69,22 +52,35 @@ function getInitials(name: string): string {
     .join("");
 }
 
-function formatPaymentLabel(transaction: LedgerTransaction) {
-  const labelMap: Record<LedgerTransaction["paymentMode"], string> = {
+function formatPaymentLabel(mode: string, proofUrl: string | null) {
+  const labelMap: Record<string, string> = {
     CASH: "Cash",
     UPI: "UPI",
     CARD: "Card",
     OTHER: "Other",
   };
 
-  return transaction.paymentMode === "UPI" && transaction.paymentProofUrl
-    ? `${labelMap[transaction.paymentMode]} (proof attached)`
-    : labelMap[transaction.paymentMode];
+  return mode === "UPI" && proofUrl
+    ? `${labelMap[mode] || mode} (proof)`
+    : labelMap[mode] || mode;
 }
 
-export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledger: LedgerData; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
+export function ContactPDF({ data, companyName, logoUrl, signatureUrl }: { data: ContactDetail; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
+  // Flatten and sort transactions
+  const allTransactions = data.projects.flatMap((p) => 
+    p.transactions.map((t) => ({ ...t, projectName: p.project.name }))
+  );
+
+  allTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  let runningBalance = 0;
+  const enrichedTransactions = allTransactions.map((t) => {
+    runningBalance += Number(t.credit) - Number(t.debit);
+    return { ...t, runningBalance };
+  });
+
   return (
-    <Document title={`${ledger.project.name} - Ledger`} author={companyName}>
+    <Document title={`${data.contact.name} - Ledger`} author={companyName}>
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
@@ -96,21 +92,24 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
                 <Text style={s.brandText}>{getInitials(companyName)}</Text>
               </View>
             )}
-            <Text style={s.companyName}>{companyName}</Text>
+            <View>
+              <Text style={s.companyName}>{companyName}</Text>
+            </View>
           </View>
           <View style={s.divider} />
+          
+          <View style={{ marginTop: 6, marginBottom: 16 }}>
+             <Text style={{ fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold" as any, color: "#31563d", textTransform: "uppercase" as any }}>Contact Ledger</Text>
+          </View>
+
           <View style={s.metaRow}>
             <View>
-              <Text style={s.metaLabel}>Client</Text>
-              <Text style={s.metaValue}>{ledger.client.name}</Text>
+              <Text style={s.metaLabel}>Contact Name</Text>
+              <Text style={s.metaValue}>{data.contact.name}</Text>
             </View>
             <View>
-              <Text style={s.metaLabel}>Project</Text>
-              <Text style={s.metaValue}>{ledger.project.name}</Text>
-            </View>
-            <View>
-              <Text style={s.metaLabel}>Budget</Text>
-              <Text style={s.metaValue}>{formatCurrency(Number(ledger.project.budget))}</Text>
+              <Text style={s.metaLabel}>Category</Text>
+              <Text style={s.metaValue}>{data.contact.category}</Text>
             </View>
             <View>
               <Text style={s.metaLabel}>Date</Text>
@@ -122,47 +121,59 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
         {/* Summary */}
         <View style={s.summaryRow}>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Credit Received</Text>
-            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.credit))}</Text>
+            <Text style={s.summaryLabel}>Total Credit</Text>
+            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(data.totals.credit))}</Text>
           </View>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Amount Spent</Text>
-            <Text style={s.summaryValue}>{formatCurrency(Number(ledger.totals.debit))}</Text>
+            <Text style={s.summaryLabel}>Total Debit</Text>
+            <Text style={s.summaryValue}>{formatCurrency(Number(data.totals.debit))}</Text>
           </View>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Balance Remaining</Text>
-            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.balance))}</Text>
+            <Text style={s.summaryLabel}>Net Balance</Text>
+            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(data.totals.balance))}</Text>
+          </View>
+          <View style={s.summaryItem}>
+            <Text style={s.summaryLabel}>Total Transactions</Text>
+            <Text style={s.summaryValue}>{data.totals.transactionCount}</Text>
+          </View>
+          <View style={s.summaryItem}>
+            <Text style={s.summaryLabel}>Projects Worked On</Text>
+            <Text style={s.summaryValue}>{data.totals.projectCount}</Text>
           </View>
         </View>
 
         {/* Table */}
+        <View style={{ marginTop: 10, marginBottom: 6 }}>
+          <Text style={{ fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold" as any, color: "#31563d", textTransform: "uppercase" as any }}>Transaction History</Text>
+        </View>
+        
         <View style={s.tableHeader}>
           <Text style={[s.th, s.colDate]}>Date</Text>
-          <Text style={[s.th, s.colContact]}>Contact</Text>
+          <Text style={[s.th, s.colProject]}>Project</Text>
           <Text style={[s.th, s.colCategory]}>Category</Text>
           <Text style={[s.th, s.colPayment]}>Payment</Text>
           <Text style={[s.th, s.colDesc]}>Description</Text>
-          <Text style={[s.th, s.colMoney]}>Credit</Text>
-          <Text style={[s.th, s.colMoney]}>Debit</Text>
-          <Text style={[s.th, s.colMoney]}>Balance</Text>
+          <Text style={[s.th, s.colAmount]}>Credit</Text>
+          <Text style={[s.th, s.colAmount]}>Debit</Text>
+          <Text style={[s.th, s.colBalance]}>Running Balance</Text>
         </View>
 
-        {ledger.transactions.map((t) => (
+        {enrichedTransactions.map((t) => (
           <View key={t.id} style={s.tableRow} wrap={false}>
             <Text style={[s.td, s.colDate]}>{new Date(t.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
-            <Text style={[s.td, s.colContact]}>{t.contact.name}</Text>
+            <Text style={[s.td, s.colProject]}>{t.projectName}</Text>
             <Text style={[s.td, s.colCategory]}>{t.category}</Text>
-            <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(t)}</Text>
+            <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(t.paymentMode, t.paymentProofUrl)}</Text>
             <Text style={[s.td, s.colDesc]}>{t.description || "—"}</Text>
-            <Text style={[s.td, s.colMoney, s.creditColor]}>{Number(t.credit) ? formatCurrency(Number(t.credit)) : "—"}</Text>
-            <Text style={[s.td, s.colMoney]}>{Number(t.debit) ? formatCurrency(Number(t.debit)) : "—"}</Text>
-            <Text style={[s.td, s.colMoney, { fontFamily: "NotoSans", fontWeight: "bold" }]}>{formatCurrency(Number(t.runningBalance))}</Text>
+            <Text style={[s.td, s.colAmount, s.creditColor]}>{Number(t.credit) ? formatCurrency(Number(t.credit)) : "—"}</Text>
+            <Text style={[s.td, s.colAmount]}>{Number(t.debit) ? formatCurrency(Number(t.debit)) : "—"}</Text>
+            <Text style={[s.td, s.colBalance, { fontFamily: "NotoSans", fontWeight: "bold" as any }]}>{formatCurrency(Number(t.runningBalance))}</Text>
           </View>
         ))}
 
-        {ledger.transactions.length === 0 && (
+        {enrichedTransactions.length === 0 && (
           <View style={{ paddingVertical: 20, alignItems: "center" }}>
-            <Text style={{ color: "#71766f" }}>No transactions recorded.</Text>
+            <Text style={{ color: "#71766f" }}>No transactions available.</Text>
           </View>
         )}
 
@@ -173,12 +184,8 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
             <View style={s.signatureWrapper}>
               {signatureUrl && <Image src={signatureUrl} style={s.signatureImage} />}
               <View style={s.signatureBlock}>
-                <Text style={s.signatureLabel}>Prepared By</Text>
-              </View>
-            </View>
-            <View style={[s.signatureWrapper, { justifyContent: "flex-end" }]}>
-              <View style={s.signatureBlock}>
-                <Text style={s.signatureLabel}>Client Signature</Text>
+                <Text style={s.signatureLabel}>Generated by Interior Ledger</Text>
+                <Text style={[s.signatureLabel, { marginTop: 2 }]}>Company Signature</Text>
               </View>
             </View>
           </View>

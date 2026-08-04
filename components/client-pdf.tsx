@@ -1,4 +1,5 @@
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
+import { ClientLedgerData, ClientLedgerPayment } from "../hooks/use-clients";
 import { registerPdfFonts, formatCurrency } from "../lib/pdf-utils";
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -10,27 +11,27 @@ const s = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
   logoImage: { width: 32, height: 32, borderRadius: 2, marginRight: 10, objectFit: "cover" },
   brandMark: { width: 32, height: 32, backgroundColor: "#31563d", borderRadius: 2, justifyContent: "center", alignItems: "center", marginRight: 10 },
-  brandText: { color: "#fff", fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" as any },
-  companyName: { fontSize: 14, fontFamily: "NotoSans", fontWeight: "bold" as any },
+  brandText: { color: "#fff", fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" },
+  companyName: { fontSize: 14, fontFamily: "NotoSans", fontWeight: "bold" },
   divider: { height: 1, backgroundColor: "#dcd9d3", marginVertical: 10 },
   metaRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
   metaLabel: { color: "#71766f", fontSize: 8, textTransform: "uppercase" as any, letterSpacing: 0.5 },
-  metaValue: { fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold" as any },
+  metaValue: { fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold" },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 12, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#e9e6df" },
   summaryItem: { flex: 1 },
   summaryLabel: { fontSize: 7, color: "#71766f", textTransform: "uppercase" as any, letterSpacing: 0.5, marginBottom: 4 },
-  summaryValue: { fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" as any },
+  summaryValue: { fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" },
   creditColor: { color: "#31563d" },
   tableHeader: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#dcd9d3", paddingBottom: 6, marginBottom: 4 },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#eeece7", paddingVertical: 6 },
-  th: { fontSize: 7, fontFamily: "NotoSans", fontWeight: "bold" as any, color: "#777a73", textTransform: "uppercase" as any, letterSpacing: 0.5 },
-  td: { fontSize: 8, fontFamily: "NotoSans" },
+  th: { fontSize: 7, fontFamily: "NotoSans", fontWeight: "bold", color: "#777a73", textTransform: "uppercase" as any, letterSpacing: 0.5 },
+  td: { fontSize: 8 },
   colDate: { width: "12%" },
-  colContact: { width: "15%" },
-  colCategory: { width: "13%" },
-  colPayment: { width: "14%" },
-  colDesc: { width: "14%" },
-  colMoney: { width: "10%", textAlign: "right" },
+  colProject: { width: "20%" },
+  colCategory: { width: "15%" },
+  colPayment: { width: "15%" },
+  colDesc: { width: "23%" },
+  colAmount: { width: "15%", textAlign: "right" },
   footer: { marginTop: 30 },
   signatureArea: { flexDirection: "row", justifyContent: "space-between", marginTop: 50 },
   signatureWrapper: { width: "40%" },
@@ -39,26 +40,6 @@ const s = StyleSheet.create({
   signatureLabel: { fontSize: 8, color: "#71766f" },
   pageNumber: { position: "absolute", bottom: 25, right: 40, fontSize: 7, color: "#71766f" },
 });
-
-type LedgerTransaction = {
-  id: string;
-  date: string;
-  contact: { id: string; name: string; category: string; };
-  category: string;
-  description?: string | null;
-  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
-  paymentProofUrl: string | null;
-  credit: string;
-  debit: string;
-  runningBalance: string;
-};
-
-type LedgerData = {
-  project: { id: string; name: string; budget: string };
-  client: { id: string; name: string };
-  totals: { credit: string; debit: string; balance: string };
-  transactions: LedgerTransaction[];
-};
 
 function getInitials(name: string): string {
   return name
@@ -69,22 +50,22 @@ function getInitials(name: string): string {
     .join("");
 }
 
-function formatPaymentLabel(transaction: LedgerTransaction) {
-  const labelMap: Record<LedgerTransaction["paymentMode"], string> = {
+function formatPaymentLabel(payment: ClientLedgerPayment) {
+  const labelMap: Record<ClientLedgerPayment["paymentMode"], string> = {
     CASH: "Cash",
     UPI: "UPI",
     CARD: "Card",
     OTHER: "Other",
   };
 
-  return transaction.paymentMode === "UPI" && transaction.paymentProofUrl
-    ? `${labelMap[transaction.paymentMode]} (proof attached)`
-    : labelMap[transaction.paymentMode];
+  return payment.paymentMode === "UPI" && payment.paymentProofUrl
+    ? `${labelMap[payment.paymentMode]} (proof)`
+    : labelMap[payment.paymentMode];
 }
 
-export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledger: LedgerData; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
+export function ClientPDF({ data, companyName, logoUrl, signatureUrl }: { data: ClientLedgerData; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
   return (
-    <Document title={`${ledger.project.name} - Ledger`} author={companyName}>
+    <Document title={`${data.client.name} - Summary`} author={companyName}>
       <Page size="A4" style={s.page}>
         {/* Header */}
         <View style={s.header}>
@@ -102,15 +83,11 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
           <View style={s.metaRow}>
             <View>
               <Text style={s.metaLabel}>Client</Text>
-              <Text style={s.metaValue}>{ledger.client.name}</Text>
+              <Text style={s.metaValue}>{data.client.name}</Text>
             </View>
             <View>
-              <Text style={s.metaLabel}>Project</Text>
-              <Text style={s.metaValue}>{ledger.project.name}</Text>
-            </View>
-            <View>
-              <Text style={s.metaLabel}>Budget</Text>
-              <Text style={s.metaValue}>{formatCurrency(Number(ledger.project.budget))}</Text>
+              <Text style={s.metaLabel}>Contact</Text>
+              <Text style={s.metaValue}>{[data.client.phone, data.client.email].filter(Boolean).join(" · ") || "N/A"}</Text>
             </View>
             <View>
               <Text style={s.metaLabel}>Date</Text>
@@ -122,47 +99,47 @@ export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledg
         {/* Summary */}
         <View style={s.summaryRow}>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Credit Received</Text>
-            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.credit))}</Text>
+            <Text style={s.summaryLabel}>Total Received</Text>
+            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(data.totals.totalReceived))}</Text>
           </View>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Amount Spent</Text>
-            <Text style={s.summaryValue}>{formatCurrency(Number(ledger.totals.debit))}</Text>
+            <Text style={s.summaryLabel}>Client Payments</Text>
+            <Text style={s.summaryValue}>{data.totals.paymentCount}</Text>
           </View>
           <View style={s.summaryItem}>
-            <Text style={s.summaryLabel}>Balance Remaining</Text>
-            <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.balance))}</Text>
+            <Text style={s.summaryLabel}>Projects</Text>
+            <Text style={s.summaryValue}>{data.projects.length}</Text>
           </View>
         </View>
 
         {/* Table */}
+        <View style={{ marginTop: 10, marginBottom: 6 }}>
+          <Text style={{ fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold", color: "#31563d" }}>Client Ledger (Payments Received)</Text>
+        </View>
+        
         <View style={s.tableHeader}>
           <Text style={[s.th, s.colDate]}>Date</Text>
-          <Text style={[s.th, s.colContact]}>Contact</Text>
+          <Text style={[s.th, s.colProject]}>Project</Text>
           <Text style={[s.th, s.colCategory]}>Category</Text>
           <Text style={[s.th, s.colPayment]}>Payment</Text>
           <Text style={[s.th, s.colDesc]}>Description</Text>
-          <Text style={[s.th, s.colMoney]}>Credit</Text>
-          <Text style={[s.th, s.colMoney]}>Debit</Text>
-          <Text style={[s.th, s.colMoney]}>Balance</Text>
+          <Text style={[s.th, s.colAmount]}>Amount</Text>
         </View>
 
-        {ledger.transactions.map((t) => (
-          <View key={t.id} style={s.tableRow} wrap={false}>
-            <Text style={[s.td, s.colDate]}>{new Date(t.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
-            <Text style={[s.td, s.colContact]}>{t.contact.name}</Text>
-            <Text style={[s.td, s.colCategory]}>{t.category}</Text>
-            <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(t)}</Text>
-            <Text style={[s.td, s.colDesc]}>{t.description || "—"}</Text>
-            <Text style={[s.td, s.colMoney, s.creditColor]}>{Number(t.credit) ? formatCurrency(Number(t.credit)) : "—"}</Text>
-            <Text style={[s.td, s.colMoney]}>{Number(t.debit) ? formatCurrency(Number(t.debit)) : "—"}</Text>
-            <Text style={[s.td, s.colMoney, { fontFamily: "NotoSans", fontWeight: "bold" }]}>{formatCurrency(Number(t.runningBalance))}</Text>
+        {data.payments.map((p) => (
+          <View key={p.id} style={s.tableRow} wrap={false}>
+            <Text style={[s.td, s.colDate]}>{new Date(p.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
+            <Text style={[s.td, s.colProject]}>{p.project.name}</Text>
+            <Text style={[s.td, s.colCategory]}>{p.category}</Text>
+            <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(p)}</Text>
+            <Text style={[s.td, s.colDesc]}>{p.description || "—"}</Text>
+            <Text style={[s.td, s.colAmount, s.creditColor, { fontFamily: "NotoSans", fontWeight: "bold" }]}>{formatCurrency(Number(p.credit))}</Text>
           </View>
         ))}
 
-        {ledger.transactions.length === 0 && (
+        {data.payments.length === 0 && (
           <View style={{ paddingVertical: 20, alignItems: "center" }}>
-            <Text style={{ color: "#71766f" }}>No transactions recorded.</Text>
+            <Text style={{ color: "#71766f" }}>No client payments recorded.</Text>
           </View>
         )}
 

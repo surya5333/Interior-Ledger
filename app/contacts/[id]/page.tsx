@@ -1,15 +1,18 @@
 "use client";
 
-import { use } from "react";
+import { use, useCallback } from "react";
 import Link from "next/link";
-import { ReceiptText } from "lucide-react";
+import { ReceiptText, Download } from "lucide-react";
+import { toast } from "sonner";
 
 import { useContact } from "../../../hooks/use-contacts";
+import { useSettings } from "../../../hooks/use-settings";
 import { CategoryBadge } from "../../../components/category-badge";
 import { PageHeader } from "../../../components/page-header";
 import { SummaryStrip } from "../../../components/summary-strip";
 import { EmptyState } from "../../../components/empty-state";
 import { MoneyText, formatMoney } from "../../../components/money-text";
+import { Button } from "../../../components/ui/button";
 import { PageSkeleton } from "../../../components/ui/skeleton";
 import {
   DataTable,
@@ -24,6 +27,32 @@ import {
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, isLoading } = useContact(id);
+  const { data: settings } = useSettings();
+
+  const exportPDF = useCallback(async () => {
+    if (!data) return;
+    try {
+      const [{ pdf }, { ContactPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../../../components/contact-pdf"),
+      ]);
+      const companyName = settings?.companyName || "Ledger";
+      const logoUrl = settings?.logoUrl;
+      const signatureUrl = settings?.signatureUrl;
+
+      const rawBlob = await pdf(<ContactPDF data={data} companyName={companyName} logoUrl={logoUrl} signatureUrl={signatureUrl} />).toBlob();
+      const blob = new Blob([rawBlob], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${data.contact.name.replace(/\s+/g, "_")}_Ledger.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("PDF generation failed", err);
+      toast.error(`Failed to generate PDF: ${err.message || err}`);
+    }
+  }, [data, settings]);
 
   if (isLoading) return <PageSkeleton />;
   if (!data || !data.contact) return <div className="text-muted">Contact not found.</div>;
@@ -41,7 +70,12 @@ export default function ContactDetailPage({ params }: { params: Promise<{ id: st
             {contact.phone && <span className="text-muted">· {contact.phone}</span>}
           </span> as any
         }
-      />
+      >
+        <Button variant="secondary" onClick={exportPDF}>
+          <Download className="size-4 mr-2" />
+          Download PDF
+        </Button>
+      </PageHeader>
 
       <SummaryStrip
         items={[
