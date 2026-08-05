@@ -19,8 +19,16 @@ type ProjectStatusRow = {
 };
 
 /** Business-wide financial analytics via Prisma aggregates and targeted SQL. */
-export async function getFinancialOverview() {
+export async function getFinancialOverview(userRole?: string) {
   const prisma = getPrisma();
+
+  const isManager = userRole === "MANAGER";
+  const projectVisibilityFilter = isManager ? { visibility: "SHARED" as any } : {};
+  const txVisibilityFilter = isManager ? { project: { visibility: "SHARED" as any } } : {};
+  // SQL fragment: added to WHERE/JOIN conditions in raw queries
+  const visibilitySql = isManager
+    ? Prisma.sql`AND p.visibility = 'SHARED'`
+    : Prisma.empty;
 
   const [
     projectCount,
@@ -37,17 +45,20 @@ export async function getFinancialOverview() {
     topContactRows,
     projectStatusRows,
   ] = await Promise.all([
-    prisma.project.count(),
+    prisma.project.count({ where: projectVisibilityFilter }),
     prisma.client.count(),
     prisma.contact.count(),
-    prisma.transaction.count(),
+    prisma.transaction.count({ where: txVisibilityFilter }),
     prisma.transaction.aggregate({
+      where: txVisibilityFilter,
       _sum: { credit: true, debit: true },
     }),
     prisma.project.aggregate({
+      where: projectVisibilityFilter,
       _avg: { budget: true },
     }),
     prisma.transaction.findMany({
+      where: txVisibilityFilter,
       take: 10,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: {
@@ -62,10 +73,12 @@ export async function getFinancialOverview() {
       },
     }),
     prisma.transaction.groupBy({
+      where: txVisibilityFilter,
       by: ["category"],
       _sum: { credit: true, debit: true },
     }),
     prisma.transaction.groupBy({
+      where: txVisibilityFilter,
       by: ["paymentMode"],
       _sum: { credit: true, debit: true },
     }),
@@ -88,7 +101,7 @@ export async function getFinancialOverview() {
       WITH client_credits AS (
         SELECT cl.id, cl.name, COALESCE(SUM(t.credit), 0)::numeric AS total_credit
         FROM "Client" cl
-        LEFT JOIN "Project" p ON p.client_id = cl.id
+        LEFT JOIN "Project" p ON p.client_id = cl.id ${visibilitySql}
         LEFT JOIN "Transaction" t ON t.project_id = p.id
         GROUP BY cl.id, cl.name
         ORDER BY total_credit DESC
@@ -98,6 +111,7 @@ export async function getFinancialOverview() {
         SELECT p.id, p.name, COALESCE(SUM(t.credit + t.debit), 0)::numeric AS total_value
         FROM "Project" p
         LEFT JOIN "Transaction" t ON t.project_id = p.id
+        WHERE 1=1 ${visibilitySql}
         GROUP BY p.id, p.name
         ORDER BY total_value DESC
         LIMIT 1
@@ -106,14 +120,17 @@ export async function getFinancialOverview() {
         SELECT c.id, c.name, c.category, COUNT(t.id)::bigint AS tx_count
         FROM "Contact" c
         LEFT JOIN "Transaction" t ON t.contact_id = c.id
+        LEFT JOIN "Project" p ON p.id = t.project_id ${visibilitySql}
         GROUP BY c.id, c.name, c.category
         ORDER BY tx_count DESC, c.name ASC
         LIMIT 1
       ),
       expense_categories AS (
-        SELECT category, COALESCE(SUM(debit), 0)::numeric AS total_debit
-        FROM "Transaction"
-        GROUP BY category
+        SELECT t.category, COALESCE(SUM(t.debit), 0)::numeric AS total_debit
+        FROM "Transaction" t
+        JOIN "Project" p ON p.id = t.project_id
+        WHERE 1=1 ${visibilitySql}
+        GROUP BY t.category
         ORDER BY total_debit DESC
         LIMIT 1
       )
@@ -143,7 +160,7 @@ export async function getFinancialOverview() {
         COALESCE(SUM(t.credit + t.debit), 0)::numeric AS "totalValue",
         COUNT(t.id)::bigint AS "transactionCount"
       FROM "Client" cl
-      LEFT JOIN "Project" p ON p.client_id = cl.id
+      LEFT JOIN "Project" p ON p.client_id = cl.id ${visibilitySql}
       LEFT JOIN "Transaction" t ON t.project_id = p.id
       GROUP BY cl.id, cl.name
       HAVING COALESCE(SUM(t.credit + t.debit), 0) > 0
@@ -159,6 +176,7 @@ export async function getFinancialOverview() {
         COUNT(t.id)::bigint AS "transactionCount"
       FROM "Contact" c
       LEFT JOIN "Transaction" t ON t.contact_id = c.id
+      LEFT JOIN "Project" p ON p.id = t.project_id ${visibilitySql}
       GROUP BY c.id, c.name, c.category
       HAVING COALESCE(SUM(t.credit + t.debit), 0) > 0
       ORDER BY "totalValue" DESC
@@ -180,6 +198,7 @@ export async function getFinancialOverview() {
             WHERE t.project_id = p.id
           ), 0)::numeric AS balance
         FROM "Project" p
+        WHERE 1=1 ${visibilitySql}
       ) project_balances
     `),
   ]);

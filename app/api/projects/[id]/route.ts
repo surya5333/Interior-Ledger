@@ -11,27 +11,52 @@ const updateProjectSchema = z.object({
   location: z.string().optional(),
   budget: z.coerce.number().min(0).optional(),
   status: z.enum(["SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"]).optional(),
+  visibility: z.enum(["SHARED", "PRIVATE"]).optional(),
   scheduledDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
 /** GET project details */
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const project = await getPrisma().project.findUnique({
     where: { id },
     include: { client: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  
+  if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json(project);
 }
 
 /** PATCH update project */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await verifySession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id } = await params;
-    const body = updateProjectSchema.parse(await request.json());
     const prisma = getPrisma();
+    
+    // Check access first
+    const existingProject = await prisma.project.findUnique({ where: { id } });
+    if (!existingProject) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (session.role === "MANAGER" && existingProject.visibility === "PRIVATE") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const body = updateProjectSchema.parse(await request.json());
+
+    // Managers cannot alter visibility
+    if (session.role === "MANAGER" && body.visibility) {
+      delete body.visibility;
+    }
 
     let clientId: string | undefined;
 
@@ -62,6 +87,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(clientId ? { clientId } : {}),
         ...(body.budget !== undefined ? { budget: body.budget } : {}),
         ...(body.status ? { status: body.status as any } : {}),
+        ...(body.visibility ? { visibility: body.visibility as any } : {}),
         ...(body.scheduledDate !== undefined ? { scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null } : {}),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
       },

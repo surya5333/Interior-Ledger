@@ -11,18 +11,31 @@ const projectSchema = z.object({
   clientName: z.string().optional(),
   budget: z.coerce.number().min(0),
   status: z.enum(["SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"]).optional(),
+  visibility: z.enum(["SHARED", "PRIVATE"]).optional(),
   scheduledDate: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+
 }).refine(
   (d) => !!d.clientId || (!!d.clientName && d.clientName.trim().length > 0),
   { message: "Either clientId or clientName is required", path: ["clientName"] }
 );
 
+import { verifySession } from "../../../lib/auth";
+
 export async function GET(request: NextRequest) {
+  const session = await verifySession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
 
-  const where = status ? { status: status as any } : { status: { not: "SCHEDULED" as any } };
+  const where: any = status ? { status: status as any } : { status: { not: "SCHEDULED" as any } };
+  
+  if (session.role === "MANAGER") {
+    where.visibility = "SHARED";
+  }
 
   const projects = await getPrisma().project.findMany({ 
     where,
@@ -34,6 +47,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await verifySession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = projectSchema.parse(await request.json());
     const prisma = getPrisma();
 
@@ -62,6 +80,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Client is required" }, { status: 400 });
     }
 
+    // Force SHARED if MANAGER creates a project
+    const finalVisibility = session.role === "MANAGER" ? "SHARED" : (body.visibility || "SHARED");
+
     const project = await prisma.project.create({
       data: { 
         name: body.name.trim(), 
@@ -69,6 +90,7 @@ export async function POST(request: NextRequest) {
         location: body.location?.trim()||null, 
         budget: body.budget,
         status: body.status as any || "ACTIVE",
+        visibility: finalVisibility as any,
         scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
         notes: body.notes || null,
       },

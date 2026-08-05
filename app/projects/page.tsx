@@ -49,6 +49,7 @@ const projectSchema = z.object({
   clientName: z.string().min(1, "Client is required"),
   location: z.string().optional(),
   budget: z.coerce.number().min(0, "Budget must be a positive number"),
+  visibility: z.enum(["SHARED", "PRIVATE"]).optional(),
 });
 type ProjectFormData = z.infer<typeof projectSchema>;
 
@@ -65,10 +66,12 @@ export default function ProjectsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProjectFormData>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema) as any,
-    defaultValues: { name: "", clientName: "",location:"", budget: 0 },
+    defaultValues: { name: "", clientName: "", location:"", budget: 0, visibility: "SHARED" },
   });
+
+  const visibilityValue = watch("visibility");
 
   const filteredProjects = projects.filter((p) =>
     p.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -78,13 +81,13 @@ export default function ProjectsPage() {
 
   const openNewModal = () => {
     setEditingId(null);
-    reset({ name: "", clientName: "",location:"", budget: 0 });
+    reset({ name: "", clientName: "", location:"", budget: 0, visibility: "SHARED" });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (p: Project) => {
+  const openEditModal = (p: Project & { visibility?: string }) => {
     setEditingId(p.id);
-    reset({ name: p.name, clientName: p.client?.name || "",location:p.location || "", budget: Number(p.budget) });
+    reset({ name: p.name, clientName: p.client?.name || "", location:p.location || "", budget: Number(p.budget), visibility: (p.visibility as any) || "SHARED" });
     setIsModalOpen(true);
   };
 
@@ -96,6 +99,7 @@ export default function ProjectsPage() {
         clientName: data.clientName.trim(),
         location: data.location?.trim(),
         budget: data.budget,
+        visibility: data.visibility as any,
       }, {
         onSuccess: () => {
           setIsModalOpen(false);
@@ -106,7 +110,7 @@ export default function ProjectsPage() {
         }
       });
     } else {
-      createMutation.mutate({ name: data.name, clientName: data.clientName.trim(),location: data.location?.trim(), budget: data.budget }, {
+      createMutation.mutate({ name: data.name, clientName: data.clientName.trim(), location: data.location?.trim(), budget: data.budget, visibility: data.visibility as any }, {
         onSuccess: () => {
           setIsModalOpen(false);
           toast.success("Project created successfully.");
@@ -166,9 +170,16 @@ export default function ProjectsPage() {
                 filteredProjects.map((p) => (
                   <DataTableRow key={p.id}>
                     <DataTableCell>
-                      <Link href={`/projects/${p.id}`} className="font-medium text-text hover:text-primary transition-colors">
-                        {p.name}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/projects/${p.id}`} className="font-medium text-text hover:text-primary transition-colors">
+                          {p.name}
+                        </Link>
+                        {(p as any).visibility === "PRIVATE" && (
+                          <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">
+                            Private
+                          </span>
+                        )}
+                      </div>
                     </DataTableCell>
                     <DataTableCell className="text-muted">{p.client?.name || "—"}</DataTableCell>
                     <DataTableCell className="text-muted">{p.location || "—"}</DataTableCell>
@@ -256,6 +267,26 @@ export default function ProjectsPage() {
               <Input id="budget" type="number" step="0.01" {...register("budget")} placeholder="0.00" error={!!errors.budget} />
               {errors.budget && <p className="text-xs text-danger">{errors.budget.message}</p>}
             </div>
+
+            {user?.role === "ADMIN" && (
+              <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-background/50">
+                <div className="space-y-0.5">
+                  <Label>Project Visibility</Label>
+                  <p className="text-xs text-muted">
+                    {visibilityValue === "PRIVATE" ? "Private (Admin Only)" : "Shared (Manager can access)"}
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer"
+                    checked={visibilityValue === "PRIVATE"}
+                    onChange={(e) => setValue("visibility", e.target.checked ? "PRIVATE" : "SHARED", { shouldValidate: true })}
+                  />
+                  <div className="w-11 h-6 bg-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>

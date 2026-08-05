@@ -7,6 +7,7 @@ export interface Project {
   location: string | null;
   budget: string | number;
   status: string;
+  visibility: string;
   scheduledDate: string | null;
   notes: string | null;
   createdAt: string;
@@ -40,7 +41,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; clientName: string; location?: string; budget: number; status?: string; scheduledDate?: string; notes?: string }) =>
+    mutationFn: (data: { name: string; clientName: string; location?: string; budget: number; status?: string; visibility?: string; scheduledDate?: string; notes?: string }) =>
       fetchJson("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,7 +59,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; location?: string; budget?: number; status?: string; scheduledDate?: string; notes?: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; location?: string; budget?: number; status?: string; visibility?: string; scheduledDate?: string; notes?: string }) =>
       fetchJson(`/api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

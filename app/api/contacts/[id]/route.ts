@@ -15,6 +15,9 @@ const updateContactSchema = z.object({
 
 /** Get a contact's details and all their transactions across projects */
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
   const prisma = getPrisma();
 
@@ -27,8 +30,10 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
+  const visibilityFilter = session.role === "MANAGER" ? { visibility: "SHARED" as any } : {};
+
   const transactions = await prisma.transaction.findMany({
-    where: { contactId: id },
+    where: { contactId: id, project: visibilityFilter },
     include: {
       project: { select: { id: true, name: true, client: { select: { name: true } } } },
     },

@@ -14,8 +14,11 @@ const updateClientSchema = z.object({
 
 /** GET client details with projects and payment ledger */
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
-  const ledger = await getClientLedger(id);
+  const ledger = await getClientLedger(id, session.role);
   if (!ledger) return NextResponse.json({ error: "Client not found." }, { status: 404 });
   return NextResponse.json(ledger);
 }

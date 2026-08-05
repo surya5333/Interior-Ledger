@@ -24,10 +24,23 @@ const updateTransactionSchema = z.object({
   isClientPayment: z.boolean().optional(),
 });
 
+import { verifySession } from "../../../../../../lib/auth";
+
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string, transactionId: string }> }) {
   try {
+    const session = await verifySession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id: projectId, transactionId } = await params;
-    await getPrisma().transaction.delete({
+    const prisma = getPrisma();
+
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
+    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await prisma.transaction.delete({
       where: { id: transactionId, projectId },
     });
     return NextResponse.json({ success: true });
@@ -38,9 +51,18 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string, transactionId: string }> }) {
   try {
+    const session = await verifySession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id: projectId, transactionId } = await params;
     const body = updateTransactionSchema.parse(await request.json());
     const prisma = getPrisma();
+
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
+    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const existingTransaction = await prisma.transaction.findFirst({
       where: { id: transactionId, projectId },
       select: {

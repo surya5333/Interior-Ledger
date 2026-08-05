@@ -12,8 +12,22 @@ function normalizePaymentProofUrl(paymentMode: "CASH" | "UPI" | "CARD" | "OTHER"
   return paymentMode === "UPI" && paymentProofUrl ? paymentProofUrl : null;
 }
 
+import { verifySession } from "../../../../../lib/auth";
+
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await verifySession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
+  
+  const prisma = getPrisma();
+  const project = await prisma.project.findUnique({ where: { id }, select: { visibility: true } });
+  
+  if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+  if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const ledger = await getProjectLedger(id);
   return ledger
     ? NextResponse.json(ledger, { headers: { "Cache-Control": "private, no-store" } })
@@ -22,16 +36,26 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await verifySession();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { id: projectId } = await params;
-    const input = createTransactionSchema.parse(await request.json());
+    
     const prisma = getPrisma();
+    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
+    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const input = createTransactionSchema.parse(await request.json());
 
     const transaction = await prisma.$transaction(async (db) => {
-      const project = await db.project.findUnique({
+      const projectData = await db.project.findUnique({
         where: { id: projectId },
         select: { id: true, client: { select: { id: true, name: true } } },
       });
-      if (!project) return null;
+      if (!projectData) return null;
 
       if (input.isClientPayment) {
         return db.transaction.create({
