@@ -3,7 +3,10 @@ import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  migrations: { path: "prisma/migrations" },
+  migrations: { 
+    path: "prisma/migrations",
+    seed: "npx tsx prisma/seed.ts"
+  },
   // DIRECT_URL is used only by Prisma CLI commands. Runtime traffic uses the
   // Supavisor transaction pooler in lib/prisma.ts through DATABASE_URL.
   datasource: {

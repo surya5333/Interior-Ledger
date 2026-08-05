@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findContactByNameAndCategory, normalizeContactIdentity } from "../../../../lib/contacts";
 import { getPrisma } from "../../../../lib/prisma";
+import { verifySession } from "../../../../lib/auth";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -125,9 +126,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
+    const session = await verifySession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.role === "MANAGER") {
+      return NextResponse.json({ error: "Forbidden: Managers cannot delete contacts." }, { status: 403 });
+    }
+    
     const prisma = getPrisma();
     await prisma.contact.delete({ where: { id } });
     return NextResponse.json({ success: true });

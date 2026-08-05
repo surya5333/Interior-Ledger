@@ -12,17 +12,19 @@ import {
   Settings,
   Menu,
   X,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useSettings } from "../hooks/use-settings";
+import { useUser } from "../hooks/use-user";
 
 const navItems = [
-  { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/" },
+  { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/", adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/projects" || p.startsWith("/projects/") },
-  { href: "/scheduled-projects", label: "Scheduled Projects", icon: FolderKanban, match: (p: string) => p.startsWith("/scheduled-projects") },
+  { href: "/scheduled-projects", label: "Scheduled Projects", icon: CalendarDays, match: (p: string) => p.startsWith("/scheduled-projects"), adminOnly: true },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
   { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
-  { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview") },
+  { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview"), adminOnly: true },
 ];
 
 function getInitials(name: string): string {
@@ -38,6 +40,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { data: settings } = useSettings();
+  const { data: user } = useUser();
 
   const companyName = settings?.companyName || "Ledger";
   const initials = getInitials(companyName);
@@ -46,6 +49,15 @@ export default function Sidebar() {
   useEffect(() => {
     document.title = companyName;
   }, [companyName]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   return (
     <>
@@ -104,30 +116,37 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-0.5 px-3 mt-8 flex-1">
-          {navItems.map((item) => {
-            const isActive = item.match(pathname);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium no-underline transition-colors duration-100",
-                  isActive
-                    ? "bg-primary-light text-primary"
-                    : "text-muted hover:bg-hover hover:text-text"
-                )}
-              >
-                {/* Active indicator */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-primary" />
-                )}
-                <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {navItems
+            .filter((item) => {
+              if (user?.role === "MANAGER" && item.adminOnly) {
+                return false;
+              }
+              return true;
+            })
+            .map((item) => {
+              const isActive = item.match(pathname);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium no-underline transition-colors duration-100",
+                    isActive
+                      ? "bg-primary-light text-primary"
+                      : "text-muted hover:bg-hover hover:text-text"
+                  )}
+                >
+                  {/* Active indicator */}
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-primary" />
+                  )}
+                  <Icon className="size-[18px] shrink-0" strokeWidth={1.8} />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
         </nav>
 
         {/* Bottom section */}
@@ -150,6 +169,16 @@ export default function Sidebar() {
             <span>Settings</span>
           </Link>
 
+          <button
+            onClick={() => {
+              setMobileOpen(false);
+              handleLogout();
+            }}
+            className="relative w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors duration-100 text-muted hover:bg-hover hover:text-danger cursor-pointer"
+          >
+            <X className="size-[18px] shrink-0" strokeWidth={1.8} />
+            <span>Logout</span>
+          </button>
         </div>
       </aside>
     </>

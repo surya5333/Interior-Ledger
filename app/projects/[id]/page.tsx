@@ -83,12 +83,12 @@ type TransactionFormData = z.infer<typeof transactionSchema>;
 
 function getDefaultTransactionValues(clientName = ""): TransactionFormData {
   return {
-    paymentFromClient: true,
+    paymentFromClient: false,
     date: new Date().toISOString().slice(0, 10),
-    contactName: clientName,
-    category: CLIENT_PAYMENT_CATEGORY,
+    contactName: "",
+    category: "",
     description: "",
-    type: "credit",
+    type: "debit",
     amount: 0,
     paymentMode: "CASH",
     paymentProofUrl: "",

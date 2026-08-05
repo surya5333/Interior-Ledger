@@ -10,6 +10,7 @@ import { Plus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, Project } from "../../hooks/use-projects";
 import { useClients } from "../../hooks/use-clients";
+import { useUser } from "../../hooks/use-user";
 import { PageHeader } from "../../components/page-header";
 import { SearchBar } from "../../components/search-bar";
 import { EmptyState } from "../../components/empty-state";
@@ -54,6 +55,7 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 export default function ProjectsPage() {
   const { data: projects = [], isLoading } = useProjects();
   const { data: clients = [] } = useClients();
+  const { data: user } = useUser();
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
@@ -192,10 +194,12 @@ export default function ProjectsPage() {
                               <Pencil className="size-4 mr-2 text-muted" />
                               Edit Project
                             </DropdownMenuItem>
-                            <DropdownMenuItem destructive onClick={() => setDeleteId(p.id)}>
-                              <Trash2 className="size-4 mr-2" />
-                              Delete Project
-                            </DropdownMenuItem>
+                            {user?.role === "ADMIN" && (
+                              <DropdownMenuItem destructive onClick={() => setDeleteId(p.id)}>
+                                <Trash2 className="size-4 mr-2" />
+                                Delete Project
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Plus, MoreHorizontal, Pencil, Trash2, Building2 } from "lucide-react";
 
 import { useClients, useCreateClient, useUpdateClient, useDeleteClient, Client } from "../../hooks/use-clients";
+import { useUser } from "../../hooks/use-user";
 import { PageHeader } from "../../components/page-header";
 import { SearchBar } from "../../components/search-bar";
 import { EmptyState } from "../../components/empty-state";
@@ -49,6 +50,7 @@ type ClientFormData = z.infer<typeof clientSchema>;
 
 export default function ClientsPage() {
   const { data: clients = [], isLoading } = useClients();
+  const { data: user } = useUser();
   const createMutation = useCreateClient();
   const updateMutation = useUpdateClient();
   const deleteMutation = useDeleteClient();
@@ -178,10 +180,12 @@ export default function ClientsPage() {
                               <Pencil className="size-4 mr-2 text-muted" />
                               Edit Client
                             </DropdownMenuItem>
-                            <DropdownMenuItem destructive onClick={() => setDeleteId(c.id)}>
-                              <Trash2 className="size-4 mr-2" />
-                              Delete Client
-                            </DropdownMenuItem>
+                            {user?.role === "ADMIN" && (
+                              <DropdownMenuItem destructive onClick={() => setDeleteId(c.id)}>
+                                <Trash2 className="size-4 mr-2" />
+                                Delete Client
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

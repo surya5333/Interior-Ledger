@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Plus, MoreHorizontal, Pencil, Trash2, Users as UsersIcon } from "lucide-react";
 
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "../../hooks/use-contacts";
+import { useUser } from "../../hooks/use-user";
 import { CategoryBadge } from "../../components/category-badge";
 import { PageHeader } from "../../components/page-header";
 import { SearchBar } from "../../components/search-bar";
@@ -50,6 +51,7 @@ type ContactFormData = z.infer<typeof contactSchema>;
 
 export default function ContactsPage() {
   const { data: contacts = [], isLoading } = useContacts();
+  const { data: user } = useUser();
   const createMutation = useCreateContact();
   const updateMutation = useUpdateContact();
   const deleteMutation = useDeleteContact();
@@ -179,10 +181,12 @@ export default function ContactsPage() {
                               <Pencil className="size-4 mr-2 text-muted" />
                               Edit Contact
                             </DropdownMenuItem>
-                            <DropdownMenuItem destructive onClick={() => setDeleteId(c.id)}>
-                              <Trash2 className="size-4 mr-2" />
-                              Delete Contact
-                            </DropdownMenuItem>
+                            {user?.role === "ADMIN" && (
+                              <DropdownMenuItem destructive onClick={() => setDeleteId(c.id)}>
+                                <Trash2 className="size-4 mr-2" />
+                                Delete Contact
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

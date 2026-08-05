@@ -88,3 +88,29 @@ model Settings {
   logoUrl      String? @map("logo_url")
   signatureUrl String? @map("signature_url")
 }
+
+enum Role {
+  ADMIN
+  MANAGER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  username     String    @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(MANAGER)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  sessions     Session[]
+
+  @@index([username])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "../../../../lib/prisma";
+import { verifySession } from "../../../../lib/auth";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -72,8 +73,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 /** DELETE project (cascades transactions) */
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const session = await verifySession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (session.role === "MANAGER") {
+      return NextResponse.json({ error: "Forbidden: Managers cannot delete projects." }, { status: 403 });
+    }
+    
     const { id } = await params;
     await getPrisma().project.delete({ where: { id } });
     return NextResponse.json({ success: true });
