@@ -4,6 +4,7 @@ export interface OverviewData {
   counts: {
     clients: number;
     projects: number;
+    scheduledProjects: number;
     contacts: number;
     transactions: number;
   };

@@ -9,6 +9,9 @@ const updateProjectSchema = z.object({
   clientName: z.string().optional(),
   location: z.string().optional(),
   budget: z.coerce.number().min(0).optional(),
+  status: z.enum(["SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"]).optional(),
+  scheduledDate: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 });
 
 /** GET project details */
@@ -57,6 +60,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         ...(body.location ? { location: body.location.trim() } : {}),
         ...(clientId ? { clientId } : {}),
         ...(body.budget !== undefined ? { budget: body.budget } : {}),
+        ...(body.status ? { status: body.status as any } : {}),
+        ...(body.scheduledDate !== undefined ? { scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes } : {}),
       },
     });
     return NextResponse.json(project);

@@ -20,12 +20,12 @@ export default function OverviewPage() {
     return <PageSkeleton />;
   }
 
-  const { counts, recentProjects } = data || { counts: { clients: 0, projects: 0, contacts: 0, transactions: 0 }, recentProjects: [] };
+  const { counts, recentProjects } = data || { counts: { clients: 0, projects: 0, scheduledProjects: 0, contacts: 0, transactions: 0 }, recentProjects: [] };
 
   const summaryItems = [
-    { label: "Total Clients", value: counts.clients.toString() },
+    { label: "Scheduled Projects", value: counts.scheduledProjects.toString() },
     { label: "Active Projects", value: counts.projects.toString() },
-    { label: "Contacts", value: counts.contacts.toString() },
+    { label: "Total Clients", value: counts.clients.toString() },
     { label: "Transactions", value: counts.transactions.toString() },
   ];
 

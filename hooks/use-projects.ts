@@ -6,6 +6,9 @@ export interface Project {
   clientId: string;
   location: string | null;
   budget: string | number;
+  status: string;
+  scheduledDate: string | null;
+  notes: string | null;
   createdAt: string;
   client?: { id: string; name: string };
 }
@@ -19,10 +22,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export function useProjects() {
+export function useProjects(options?: { status?: string }) {
   return useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: () => fetchJson("/api/projects"),
+    queryKey: ["projects", options?.status],
+    queryFn: () => fetchJson(`/api/projects${options?.status ? `?status=${options.status}` : ""}`),
   });
 }
 
@@ -37,7 +40,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; clientName: string; location?: string; budget: number }) =>
+    mutationFn: (data: { name: string; clientName: string; location?: string; budget: number; status?: string; scheduledDate?: string; notes?: string }) =>
       fetchJson("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,7 +58,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; location?: string; budget?: number }) =>
+    mutationFn: ({ id, ...data }: { id: string; name?: string; clientName?: string; location?: string; budget?: number; status?: string; scheduledDate?: string; notes?: string }) =>
       fetchJson(`/api/projects/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

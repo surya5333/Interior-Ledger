@@ -10,13 +10,22 @@ const projectSchema = z.object({
   location: z.string().optional(),
   clientName: z.string().optional(),
   budget: z.coerce.number().min(0),
+  status: z.enum(["SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"]).optional(),
+  scheduledDate: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
 }).refine(
   (d) => !!d.clientId || (!!d.clientName && d.clientName.trim().length > 0),
   { message: "Either clientId or clientName is required", path: ["clientName"] }
 );
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get("status");
+
+  const where = status ? { status: status as any } : { status: { not: "SCHEDULED" as any } };
+
   const projects = await getPrisma().project.findMany({ 
+    where,
     include: { client: true },
     orderBy: { createdAt: "desc" } 
   });
@@ -54,7 +63,15 @@ export async function POST(request: NextRequest) {
     }
 
     const project = await prisma.project.create({
-      data: { name: body.name.trim(), clientId,location: body.location?.trim()||null, budget: body.budget },
+      data: { 
+        name: body.name.trim(), 
+        clientId,
+        location: body.location?.trim()||null, 
+        budget: body.budget,
+        status: body.status as any || "ACTIVE",
+        scheduledDate: body.scheduledDate ? new Date(body.scheduledDate) : null,
+        notes: body.notes || null,
+      },
     });
     return NextResponse.json(project, { status: 201 });
   } catch (error: any) {
