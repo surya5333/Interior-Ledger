@@ -114,3 +114,58 @@ model Session {
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 }
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentType {
+  FULL
+  PARTIAL
+}
+
+enum SalaryPaymentMode {
+  CASH
+  UPI
+  BANK_TRANSFER
+}
+
+model Staff {
+  id            String         @id @default(cuid())
+  name          String
+  phone         String?
+  designation   String?
+  monthlySalary Decimal        @db.Decimal(12, 2) @map("monthly_salary")
+  joiningDate   DateTime       @map("joining_date")
+  status        StaffStatus    @default(ACTIVE)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  salaryRecords SalaryRecord[]
+
+  @@index([name])
+}
+
+model SalaryRecord {
+  id            String             @id @default(cuid())
+  staffId       String             @map("staff_id")
+  month         Int
+  year          Int
+  monthlySalary Decimal            @db.Decimal(12, 2) @map("monthly_salary")
+  previousDue   Decimal            @default(0) @db.Decimal(12, 2) @map("previous_due")
+  totalPayable  Decimal            @db.Decimal(12, 2) @map("total_payable")
+  isPaid        Boolean            @default(false) @map("is_paid")
+  paymentType   PaymentType?       @map("payment_type")
+  paidAmount    Decimal            @default(0) @db.Decimal(12, 2) @map("paid_amount")
+  due           Decimal            @default(0) @db.Decimal(12, 2)
+  paymentMode   SalaryPaymentMode? @map("payment_mode")
+  paidDate      DateTime?          @map("paid_date")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, month, year])
+  @@index([staffId])
+  @@index([month, year])
+}

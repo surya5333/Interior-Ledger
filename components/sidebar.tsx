@@ -13,6 +13,8 @@ import {
   Menu,
   X,
   CalendarDays,
+  Contact,
+  Banknote,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useSettings } from "../hooks/use-settings";
@@ -25,6 +27,8 @@ const navItems = [
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
   { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
   { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview"), adminOnly: true },
+  { href: "/staff", label: "Staff", icon: Contact, match: (p: string) => p.startsWith("/staff"), adminOnly: true },
+  { href: "/salary", label: "Salary Dashboard", icon: Banknote, match: (p: string) => p.startsWith("/salary"), adminOnly: true },
 ];
 
 function getInitials(name: string): string {
