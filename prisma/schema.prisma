@@ -175,3 +175,23 @@ model SalaryRecord {
   @@index([staffId])
   @@index([month, year])
 }
+
+enum EventPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model ScheduleEvent {
+  id        String        @id @default(cuid())
+  title     String
+  date      DateTime
+  time      String
+  location  String?
+  notes     String?
+  priority  EventPriority @default(MEDIUM)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@index([date])
+}

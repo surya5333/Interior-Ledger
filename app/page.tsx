@@ -20,14 +20,20 @@ export default function OverviewPage() {
     return <PageSkeleton />;
   }
 
-  const { counts, recentProjects } = data || { counts: { clients: 0, projects: 0, scheduledProjects: 0, contacts: 0, transactions: 0 }, recentProjects: [] };
+  const { counts, recentProjects } = data || { counts: { clients: 0, projects: 0, todaysEvents: 0, contacts: 0, transactions: 0 }, recentProjects: [] };
 
-  const summaryItems = [
-    { label: "Scheduled Projects", value: counts.scheduledProjects.toString() },
-    { label: "Active Projects", value: counts.projects.toString() },
-    { label: "Total Clients", value: counts.clients.toString() },
-    { label: "Transactions", value: counts.transactions.toString() },
-  ];
+  const summaryItems = [];
+  
+  // Only show Today's Events if it's > 0, which also conveniently hides it for Managers (as their count is 0)
+  // unless they happen to have no events, but it's a fair compromise without fetching user role here.
+  if (counts.todaysEvents > 0) {
+    summaryItems.push({ label: "Today's Events", value: counts.todaysEvents.toString() });
+  }
+  
+  summaryItems.push({ label: "Active Projects", value: counts.projects.toString() });
+  summaryItems.push({ label: "Total Clients", value: counts.clients.toString() });
+  summaryItems.push({ label: "Transactions", value: counts.transactions.toString() });
+
 
   return (
     <div className="space-y-10 fade-in">

@@ -23,7 +23,7 @@ import { useUser } from "../hooks/use-user";
 const navItems = [
   { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/", adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/projects" || p.startsWith("/projects/") },
-  { href: "/scheduled-projects", label: "Scheduled Projects", icon: CalendarDays, match: (p: string) => p.startsWith("/scheduled-projects"), adminOnly: true },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays, match: (p: string) => p.startsWith("/schedule"), adminOnly: true },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
   { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
   { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview"), adminOnly: true },

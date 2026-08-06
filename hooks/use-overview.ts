@@ -1,20 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
+import { Project } from "./use-projects";
 
 export interface OverviewData {
   counts: {
     clients: number;
     projects: number;
-    scheduledProjects: number;
+    todaysEvents: number;
     contacts: number;
     transactions: number;
   };
-  recentProjects: {
-    id: string;
-    name: string;
-    budget: string | number;
-    createdAt: string;
-    client: { name: string };
-  }[];
+  recentProjects: Project[];
 }
 
 export function useOverview() {

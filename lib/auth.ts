@@ -64,3 +64,8 @@ export async function destroySession(): Promise<void> {
   }
 }
 
+export async function requireAdmin(role: string): Promise<void> {
+  if (role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+}
