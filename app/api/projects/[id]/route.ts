@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "../../../../lib/prisma";
-import { verifySession } from "../../../../lib/auth";
+import { verifySession, loadProjectLockState, projectLocked } from "../../../../lib/auth";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -45,10 +45,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const prisma = getPrisma();
     
     // Check access first
-    const existingProject = await prisma.project.findUnique({ where: { id } });
-    if (!existingProject) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (session.role === "MANAGER" && existingProject.visibility === "PRIVATE") {
+    const state = await loadProjectLockState(id);
+    if (!state) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (session.role === "MANAGER" && state.visibility === "PRIVATE") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (state.isLocked) {
+      return NextResponse.json(projectLocked(true).body, { status: projectLocked(true).status });
     }
 
     const body = updateProjectSchema.parse(await request.json());
@@ -110,6 +113,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
     
     const { id } = await params;
+
+    const state = await loadProjectLockState(id);
+    if (!state) {
+      return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    }
+    if (state.isLocked) {
+      return NextResponse.json(projectLocked(true).body, { status: projectLocked(true).status });
+    }
+
     await getPrisma().project.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

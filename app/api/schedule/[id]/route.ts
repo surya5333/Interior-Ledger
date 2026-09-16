@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "../../../../lib/prisma";
-import { verifySession, requireAdmin } from "../../../../lib/auth";
+import { verifySession, requireAdminOrManager } from "../../../../lib/auth";
 import * as z from "zod";
 import { EventPriority } from "../../../../generated/prisma/client";
 
@@ -22,7 +22,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const session = await verifySession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     
-    await requireAdmin(session.role);
+    await requireAdminOrManager(session.role);
 
     const body = await request.json();
     const data = updateSchema.parse(body);
@@ -60,7 +60,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const session = await verifySession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     
-    await requireAdmin(session.role);
+    await requireAdminOrManager(session.role);
 
     const prisma = getPrisma();
     await prisma.scheduleEvent.delete({

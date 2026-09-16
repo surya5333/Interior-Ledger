@@ -23,11 +23,11 @@ import { useUser } from "../hooks/use-user";
 const navItems = [
   { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/", adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/projects" || p.startsWith("/projects/") },
-  { href: "/schedule", label: "Schedule", icon: CalendarDays, match: (p: string) => p.startsWith("/schedule"), adminOnly: true },
+  { href: "/schedule", label: "Schedule", icon: CalendarDays, match: (p: string) => p.startsWith("/schedule"), adminOrManager: true },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
   { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
   { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview"), adminOnly: true },
-  { href: "/staff", label: "Staff", icon: Contact, match: (p: string) => p.startsWith("/staff"), adminOnly: true },
+  { href: "/staff", label: "Staff", icon: Contact, match: (p: string) => p.startsWith("/staff"), adminOrManager: true },
   { href: "/salary", label: "Salary Dashboard", icon: Banknote, match: (p: string) => p.startsWith("/salary"), adminOnly: true },
 ];
 
@@ -122,7 +122,11 @@ export default function Sidebar() {
         <nav className="flex flex-col gap-0.5 px-3 mt-8 flex-1">
           {navItems
             .filter((item) => {
-              if (user?.role === "MANAGER" && item.adminOnly) {
+              const role = user?.role;
+              if (item.adminOnly && role !== "ADMIN") {
+                return false;
+              }
+              if (item.adminOrManager && role !== "ADMIN" && role !== "MANAGER") {
                 return false;
               }
               return true;

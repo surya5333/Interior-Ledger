@@ -33,7 +33,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ id: st
   const visibilityFilter = session.role === "MANAGER" ? { visibility: "SHARED" as any } : {};
 
   const transactions = await prisma.transaction.findMany({
-    where: { contactId: id, project: visibilityFilter },
+    where: { contactId: id, project: visibilityFilter, deletedAt: null },
     include: {
       project: { select: { id: true, name: true, client: { select: { name: true } } } },
     },

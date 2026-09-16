@@ -69,3 +69,25 @@ export async function requireAdmin(role: string): Promise<void> {
     throw new Error("Forbidden");
   }
 }
+
+export async function requireAdminOrManager(role: string): Promise<void> {
+  if (role !== "ADMIN" && role !== "MANAGER") {
+    throw new Error("Forbidden");
+  }
+}
+
+export const LOCKED_PROJECT_ERROR = "Project is locked and cannot be modified.";
+
+export async function loadProjectLockState(projectId: string): Promise<{ visibility: string; isLocked: boolean } | null> {
+  return getPrisma().project.findUnique({
+    where: { id: projectId },
+    select: { visibility: true, isLocked: true },
+  });
+}
+
+export function projectLocked(isLocked: boolean) {
+  return {
+    status: 403 as const,
+    body: { error: LOCKED_PROJECT_ERROR },
+  };
+}

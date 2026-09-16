@@ -24,11 +24,13 @@ export async function getFinancialOverview(userRole?: string) {
 
   const isManager = userRole === "MANAGER";
   const projectVisibilityFilter = isManager ? { visibility: "SHARED" as any } : {};
-  const txVisibilityFilter = isManager ? { project: { visibility: "SHARED" as any } } : {};
-  // SQL fragment: added to WHERE/JOIN conditions in raw queries
+  const txVisibilityFilter = isManager
+    ? { project: { visibility: "SHARED" as any }, deletedAt: null as any }
+    : { deletedAt: null as any };
   const visibilitySql = isManager
     ? Prisma.sql`AND p.visibility = 'SHARED'`
     : Prisma.empty;
+  const deletedSql = Prisma.sql`AND t.deleted_at IS NULL`;
 
   const [
     projectCount,
@@ -103,6 +105,7 @@ export async function getFinancialOverview(userRole?: string) {
         FROM "Client" cl
         LEFT JOIN "Project" p ON p.client_id = cl.id ${visibilitySql}
         LEFT JOIN "Transaction" t ON t.project_id = p.id
+          ${deletedSql}
         GROUP BY cl.id, cl.name
         ORDER BY total_credit DESC
         LIMIT 1
@@ -111,6 +114,7 @@ export async function getFinancialOverview(userRole?: string) {
         SELECT p.id, p.name, COALESCE(SUM(t.credit + t.debit), 0)::numeric AS total_value
         FROM "Project" p
         LEFT JOIN "Transaction" t ON t.project_id = p.id
+          ${deletedSql}
         WHERE 1=1 ${visibilitySql}
         GROUP BY p.id, p.name
         ORDER BY total_value DESC
@@ -120,6 +124,7 @@ export async function getFinancialOverview(userRole?: string) {
         SELECT c.id, c.name, c.category, COUNT(t.id)::bigint AS tx_count
         FROM "Contact" c
         LEFT JOIN "Transaction" t ON t.contact_id = c.id
+          ${deletedSql}
         LEFT JOIN "Project" p ON p.id = t.project_id ${visibilitySql}
         GROUP BY c.id, c.name, c.category
         ORDER BY tx_count DESC, c.name ASC
@@ -130,6 +135,7 @@ export async function getFinancialOverview(userRole?: string) {
         FROM "Transaction" t
         JOIN "Project" p ON p.id = t.project_id
         WHERE 1=1 ${visibilitySql}
+          ${deletedSql}
         GROUP BY t.category
         ORDER BY total_debit DESC
         LIMIT 1
@@ -162,6 +168,7 @@ export async function getFinancialOverview(userRole?: string) {
       FROM "Client" cl
       LEFT JOIN "Project" p ON p.client_id = cl.id ${visibilitySql}
       LEFT JOIN "Transaction" t ON t.project_id = p.id
+        ${deletedSql}
       GROUP BY cl.id, cl.name
       HAVING COALESCE(SUM(t.credit + t.debit), 0) > 0
       ORDER BY "totalValue" DESC
@@ -176,6 +183,7 @@ export async function getFinancialOverview(userRole?: string) {
         COUNT(t.id)::bigint AS "transactionCount"
       FROM "Contact" c
       LEFT JOIN "Transaction" t ON t.contact_id = c.id
+        ${deletedSql}
       LEFT JOIN "Project" p ON p.id = t.project_id ${visibilitySql}
       GROUP BY c.id, c.name, c.category
       HAVING COALESCE(SUM(t.credit + t.debit), 0) > 0
@@ -190,12 +198,15 @@ export async function getFinancialOverview(userRole?: string) {
         SELECT
           p.id,
           EXISTS (
-            SELECT 1 FROM "Transaction" t WHERE t.project_id = p.id
+            SELECT 1 FROM "Transaction" t
+            WHERE t.project_id = p.id
+              ${deletedSql}
           ) AS has_tx,
           COALESCE((
             SELECT SUM(t.credit - t.debit)
             FROM "Transaction" t
             WHERE t.project_id = p.id
+              ${deletedSql}
           ), 0)::numeric AS balance
         FROM "Project" p
         WHERE 1=1 ${visibilitySql}

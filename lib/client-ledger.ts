@@ -23,7 +23,7 @@ export async function getClientLedger(clientId: string, userRole?: string) {
       select: { id: true, name: true, budget: true, createdAt: true },
     }),
     prisma.transaction.findMany({
-      where: { isClientPayment: true, project: { clientId, ...visibilityFilter } },
+      where: { isClientPayment: true, project: { clientId, ...visibilityFilter }, deletedAt: null },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       include: { project: { select: { id: true, name: true } } },
     }),

@@ -12,12 +12,26 @@ export interface LedgerTransaction {
   credit: string;
   debit: string;
   runningBalance: string;
+  createdBy: {
+    id: string;
+    name: string;
+    role: "ADMIN" | "MANAGER";
+  } | null;
+  deleted: {
+    at: string;
+    by: {
+      id: string;
+      name: string;
+      role: "ADMIN" | "MANAGER";
+    } | null;
+  } | null;
 }
 
 export interface LedgerData {
-  project: { id: string; name: string; budget: string };
+  project: { id: string; name: string; budget: string; isLocked: boolean };
   client: { id: string; name: string };
   totals: { credit: string; debit: string; balance: string };
+  contacts: { id: string; name: string; category: string }[];
   transactions: LedgerTransaction[];
 }
 
@@ -30,10 +44,14 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-export function useLedger(projectId: string) {
+export function useLedger(projectId: string, contactId?: string | null) {
   return useQuery<LedgerData>({
-    queryKey: ["ledger", projectId],
-    queryFn: () => fetchJson(`/api/projects/${projectId}/transactions`),
+    queryKey: ["ledger", projectId, contactId ?? null],
+    queryFn: () => {
+      const url = new URL(`/api/projects/${projectId}/transactions`, window.location.origin);
+      if (contactId) url.searchParams.set("contactId", contactId);
+      return fetchJson(url.toString());
+    },
     enabled: !!projectId,
   });
 }

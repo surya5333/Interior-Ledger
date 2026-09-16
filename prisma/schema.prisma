@@ -26,6 +26,7 @@ model Project {
   budget       Decimal       @db.Decimal(12, 2)
   status       ProjectStatus @default(ACTIVE)
   visibility   ProjectVisibility @default(SHARED)
+  isLocked     Boolean       @default(false) @map("is_locked")
   scheduledDate DateTime?    @map("scheduled_date")
   notes        String?
   createdAt    DateTime      @default(now()) @map("created_at")
@@ -71,6 +72,9 @@ model Transaction {
   id              String      @id @default(cuid())
   projectId       String      @map("project_id")
   contactId       String?     @map("contact_id")
+  createdById     String?     @map("created_by_id")
+  deletedAt       DateTime?   @map("deleted_at")
+  deletedById     String?     @map("deleted_by_id")
   isClientPayment Boolean     @default(false) @map("is_client_payment")
   category        String
   description     String?
@@ -82,10 +86,15 @@ model Transaction {
   createdAt       DateTime    @default(now()) @map("created_at")
   project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   contact         Contact?    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  createdBy       User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  deletedBy       User?       @relation("TransactionDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   @@index([projectId, date, createdAt])
   @@index([contactId, date])
   @@index([isClientPayment, projectId])
+  @@index([createdById])
+  @@index([deletedAt])
+  @@index([deletedById])
 }
 
 model Settings {
@@ -101,14 +110,16 @@ enum Role {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  name         String
-  username     String    @unique
-  passwordHash String    @map("password_hash")
-  role         Role      @default(MANAGER)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  sessions     Session[]
+  id                   String        @id @default(cuid())
+  name                 String
+  username             String        @unique
+  passwordHash         String        @map("password_hash")
+  role                 Role          @default(MANAGER)
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  sessions             Session[]
+  transactions         Transaction[]
+  deletedTransactions  Transaction[] @relation("TransactionDeletedBy")
 
   @@index([username])
 }

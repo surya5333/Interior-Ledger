@@ -178,8 +178,8 @@ export default function SchedulePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && user?.role === "MANAGER") {
-      router.push("/");
+    if (!authLoading && !user) {
+      router.push("/login");
     }
   }, [user, authLoading, router]);
 
@@ -367,7 +367,7 @@ export default function SchedulePage() {
 
   // ── Guards ────────────────────────────────────────────────────────────────
 
-  if (authLoading || user?.role === "MANAGER") return <PageSkeleton />;
+  if (authLoading || !user) return <PageSkeleton />;
   if (eventsLoading) return <PageSkeleton />;
 
   // ── Grouped events helper for Week / Month list views ─────────────────────

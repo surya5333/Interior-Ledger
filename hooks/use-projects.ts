@@ -8,6 +8,7 @@ export interface Project {
   budget: string | number;
   status: string;
   visibility: string;
+  isLocked: boolean;
   scheduledDate: string | null;
   notes: string | null;
   createdAt: string;
@@ -80,6 +81,29 @@ export function useDeleteProject() {
     mutationFn: (id: string) =>
       fetchJson(`/api/projects/${id}`, { method: "DELETE" }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["overview"] });
+      qc.invalidateQueries({ queryKey: ["financial-overview"] });
+    },
+  });
+}
+
+export function useLockProject(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation<{ id: string; isLocked: boolean }, Error, void>({
+    mutationFn: async () => {
+      return fetchJson(`/api/projects/${projectId}/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(["project", projectId], (prev: Project | undefined) =>
+        prev ? { ...prev, isLocked: data.isLocked } : prev
+      );
+      qc.invalidateQueries({ queryKey: ["project", projectId] });
+      qc.invalidateQueries({ queryKey: ["ledger", projectId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
       qc.invalidateQueries({ queryKey: ["overview"] });
       qc.invalidateQueries({ queryKey: ["financial-overview"] });

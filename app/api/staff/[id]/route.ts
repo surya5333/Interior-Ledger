@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "../../../../lib/prisma";
-import { verifySession } from "../../../../lib/auth";
+import { verifySession, requireAdminOrManager } from "../../../../lib/auth";
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await verifySession();
-    if (!session || session.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await requireAdminOrManager(session.role);
 
     const { id } = await params;
     const body = await req.json();
@@ -36,9 +35,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await verifySession();
-    if (!session || session.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await requireAdminOrManager(session.role);
 
     const { id } = await params;
     const prisma = getPrisma();

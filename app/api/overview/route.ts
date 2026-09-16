@@ -15,7 +15,10 @@ export async function GET() {
 
   const prisma = getPrisma();
 
-  const visibilityFilter = session.role === "MANAGER" ? { visibility: "SHARED" as any } : {};
+  const projectVisibilityFilter = session.role === "MANAGER" ? { visibility: "SHARED" as any } : {};
+  const transactionVisibilityFilter = session.role === "MANAGER"
+    ? { project: { visibility: "SHARED" as any }, deletedAt: null as any }
+    : { deletedAt: null as any };
 
   // Fetch today's events count if Admin, otherwise 0
   let todaysEventsCount = 0;
@@ -33,11 +36,11 @@ export async function GET() {
 
   const [clientCount, projectCount, contactCount, transactionCount, recentProjects] = await Promise.all([
     prisma.client.count(),
-    prisma.project.count({ where: { status: { not: "SCHEDULED" as any }, ...visibilityFilter } }),
+    prisma.project.count({ where: { status: { not: "SCHEDULED" as any }, ...projectVisibilityFilter } }),
     prisma.contact.count(),
-    prisma.transaction.count(),
+    prisma.transaction.count({ where: transactionVisibilityFilter }),
     prisma.project.findMany({
-      where: { status: { not: "SCHEDULED" as any }, ...visibilityFilter },
+      where: { status: { not: "SCHEDULED" as any }, ...projectVisibilityFilter },
       take: 5,
       orderBy: { createdAt: "desc" },
       include: { client: { select: { name: true } } },

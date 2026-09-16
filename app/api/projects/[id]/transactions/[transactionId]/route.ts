@@ -24,7 +24,7 @@ const updateTransactionSchema = z.object({
   isClientPayment: z.boolean().optional(),
 });
 
-import { verifySession } from "../../../../../../lib/auth";
+import { verifySession, loadProjectLockState, projectLocked } from "../../../../../../lib/auth";
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string, transactionId: string }> }) {
   try {
@@ -34,15 +34,39 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id: projectId, transactionId } = await params;
     const prisma = getPrisma();
 
-    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
-    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
-    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+    const state = await loadProjectLockState(projectId);
+    if (!state) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && state.visibility === "PRIVATE") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (state.isLocked) {
+      return NextResponse.json(projectLocked(true).body, { status: projectLocked(true).status });
+    }
 
-    await prisma.transaction.delete({
+    const existing = await prisma.transaction.findFirst({
       where: { id: transactionId, projectId },
+      select: { id: true, deletedAt: true },
     });
+    if (!existing) {
+      return NextResponse.json({ error: "Transaction not found." }, { status: 404 });
+    }
+
+    if (session.role === "ADMIN") {
+      await prisma.transaction.delete({
+        where: { id: transactionId, projectId },
+      });
+    } else {
+      if (existing.deletedAt) {
+        return NextResponse.json({ error: "Transaction already deleted." }, { status: 400 });
+      }
+      await prisma.transaction.update({
+        where: { id: transactionId, projectId },
+        data: {
+          deletedAt: new Date(),
+          deletedById: session.id,
+        },
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: "Failed to delete transaction" }, { status: 400 });
@@ -58,10 +82,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = updateTransactionSchema.parse(await request.json());
     const prisma = getPrisma();
 
-    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
-    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
-    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+    const state = await loadProjectLockState(projectId);
+    if (!state) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && state.visibility === "PRIVATE") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (state.isLocked) {
+      return NextResponse.json(projectLocked(true).body, { status: projectLocked(true).status });
     }
     const existingTransaction = await prisma.transaction.findFirst({
       where: { id: transactionId, projectId },
@@ -73,12 +100,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         debit: true,
         paymentMode: true,
         paymentProofUrl: true,
+        deletedAt: true,
         contact: { select: { name: true, category: true } },
       },
     });
 
     if (!existingTransaction) {
       return NextResponse.json({ error: "Transaction not found." }, { status: 404 });
+    }
+    if (existingTransaction.deletedAt) {
+      return NextResponse.json({ error: "Cannot update a deleted transaction." }, { status: 400 });
     }
 
     const isClientPayment = body.isClientPayment ?? existingTransaction.isClientPayment;

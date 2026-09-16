@@ -12,23 +12,26 @@ function normalizePaymentProofUrl(paymentMode: "CASH" | "UPI" | "CARD" | "OTHER"
   return paymentMode === "UPI" && paymentProofUrl ? paymentProofUrl : null;
 }
 
-import { verifySession } from "../../../../../lib/auth";
+import { verifySession, loadProjectLockState, projectLocked } from "../../../../../lib/auth";
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await verifySession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  
+
   const prisma = getPrisma();
   const project = await prisma.project.findUnique({ where: { id }, select: { visibility: true } });
-  
+
   if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
   if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const ledger = await getProjectLedger(id);
+  const searchParams = request.nextUrl.searchParams;
+  const contactId = searchParams.get("contactId");
+
+  const ledger = await getProjectLedger(id, contactId || undefined, session.role);
   return ledger
     ? NextResponse.json(ledger, { headers: { "Cache-Control": "private, no-store" } })
     : NextResponse.json({ error: "Project not found." }, { status: 404 });
@@ -42,10 +45,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id: projectId } = await params;
     
     const prisma = getPrisma();
-    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { visibility: true } });
-    if (!project) return NextResponse.json({ error: "Project not found." }, { status: 404 });
-    if (session.role === "MANAGER" && project.visibility === "PRIVATE") {
+    const state = await loadProjectLockState(projectId);
+    if (!state) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    if (session.role === "MANAGER" && state.visibility === "PRIVATE") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (state.isLocked) {
+      return NextResponse.json(projectLocked(true).body, { status: projectLocked(true).status });
     }
 
     const input = createTransactionSchema.parse(await request.json());
@@ -62,6 +68,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           data: {
             projectId,
             contactId: null,
+            createdById: session.id,
             isClientPayment: true,
             date: input.date,
             category: CLIENT_PAYMENT_CATEGORY,
@@ -85,6 +92,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         data: {
           projectId,
           contactId: contact.id,
+          createdById: session.id,
           isClientPayment: false,
           date: input.date,
           category: input.category!,

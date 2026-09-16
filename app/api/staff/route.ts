@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "../../../lib/prisma";
-import { verifySession } from "../../../lib/auth";
+import { verifySession, requireAdminOrManager } from "../../../lib/auth";
 
 export async function GET() {
   try {
     const session = await verifySession();
-    if (!session || session.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await requireAdminOrManager(session.role);
 
     const prisma = getPrisma();
     const staff = await prisma.staff.findMany({
@@ -24,9 +23,8 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await verifySession();
-    if (!session || session.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await requireAdminOrManager(session.role);
 
     const body = await req.json();
     const { name, phone, designation, monthlySalary, joiningDate, status } = body;

@@ -20,6 +20,7 @@ import { Input, Label } from "../../components/ui/input";
 import { ClientCombobox } from "../../components/ui/client-combobox";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { PageSkeleton } from "../../components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import {
   DataTable,
   DataTableHeader,
@@ -53,6 +54,8 @@ const projectSchema = z.object({
 });
 type ProjectFormData = z.infer<typeof projectSchema>;
 
+type TabValue = "projects" | "drafts";
+
 export default function ProjectsPage() {
   const { data: projects = [], isLoading } = useProjects();
   const { data: clients = [] } = useClients();
@@ -61,6 +64,7 @@ export default function ProjectsPage() {
   const updateMutation = useUpdateProject();
   const deleteMutation = useDeleteProject();
 
+  const [activeTab, setActiveTab] = useState<TabValue>("projects");
   const [query, setQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -73,11 +77,16 @@ export default function ProjectsPage() {
 
   const visibilityValue = watch("visibility");
 
-  const filteredProjects = projects.filter((p) =>
+  const unlockedProjects = projects.filter((p) => !p.isLocked);
+  const lockedProjects = projects.filter((p) => p.isLocked);
+
+  const searchMatches = (p: Project) =>
     p.name.toLowerCase().includes(query.toLowerCase()) ||
     p.client?.name.toLowerCase().includes(query.toLowerCase()) ||
-    p.location?.toLowerCase().includes(query.toLowerCase())
-  );
+    p.location?.toLowerCase().includes(query.toLowerCase());
+
+  const filteredUnlocked = unlockedProjects.filter(searchMatches);
+  const filteredLocked = lockedProjects.filter(searchMatches);
 
   const openNewModal = () => {
     setEditingId(null);
@@ -85,7 +94,11 @@ export default function ProjectsPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (p: Project & { visibility?: string }) => {
+  const openEditModal = (p: Project & { visibility?: string; isLocked?: boolean }) => {
+    if (p.isLocked) {
+      toast.error("Project is locked. Cannot edit project details.");
+      return;
+    }
     setEditingId(p.id);
     reset({ name: p.name, clientName: p.client?.name || "", location:p.location || "", budget: Number(p.budget), visibility: (p.visibility as any) || "SHARED" });
     setIsModalOpen(true);
@@ -93,6 +106,12 @@ export default function ProjectsPage() {
 
   const onSubmit = (data: ProjectFormData) => {
     if (editingId) {
+      const editingProject = projects.find((p) => p.id === editingId);
+      if (editingProject?.isLocked) {
+        toast.error("Project is locked. Cannot save changes.");
+        setIsModalOpen(false);
+        return;
+      }
       updateMutation.mutate({
         id: editingId,
         name: data.name,
@@ -124,6 +143,121 @@ export default function ProjectsPage() {
 
   if (isLoading) return <PageSkeleton />;
 
+  const renderProjectTable = (projectList: Project[], isDraftTab: boolean) => {
+    const hasProjects = projectList.length > 0;
+    const hasQuery = query.length > 0;
+
+    if (!hasProjects && !hasQuery) {
+      return isDraftTab ? (
+        <EmptyState
+          title="No Project Drafts"
+          description="Locked projects will appear here as drafts."
+        />
+      ) : (
+        <EmptyState
+          title="No Active Projects Yet"
+          description="Create your first project to begin tracking finances."
+          actionLabel="Create Project"
+          onAction={openNewModal}
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <SearchBar
+          query={query}
+          onQueryChange={setQuery}
+          placeholder={isDraftTab ? "Search drafts or clients..." : "Search projects or clients..."}
+        />
+
+        <DataTable>
+          <DataTableHeader>
+            <DataTableHeaderRow>
+              <DataTableHead>Project Name</DataTableHead>
+              <DataTableHead>Client</DataTableHead>
+              <DataTableHead>Location</DataTableHead>
+              <DataTableHead align="right">Budget</DataTableHead>
+              <DataTableHead>Created</DataTableHead>
+              <DataTableHead align="right">Actions</DataTableHead>
+            </DataTableHeaderRow>
+          </DataTableHeader>
+          <DataTableBody>
+            {projectList.length === 0 ? (
+              <DataTableEmpty colSpan={6}>
+                {isDraftTab
+                  ? "No drafts found matching your search."
+                  : "No projects found matching your search."}
+              </DataTableEmpty>
+            ) : (
+              projectList.map((p) => (
+                <DataTableRow key={p.id}>
+                  <DataTableCell>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/projects/${p.id}`} className="font-medium text-text hover:text-primary transition-colors">
+                        {p.name}
+                      </Link>
+                      {(p as any).visibility === "PRIVATE" && (
+                        <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">
+                          Private
+                        </span>
+                      )}
+                      {isDraftTab && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-medium text-warning">
+                          Locked
+                        </span>
+                      )}
+                    </div>
+                  </DataTableCell>
+                  <DataTableCell className="text-muted">{p.client?.name || "—"}</DataTableCell>
+                  <DataTableCell className="text-muted">{p.location || "—"}</DataTableCell>
+                  <DataTableCell align="right">
+                    <MoneyText amount={p.budget} />
+                  </DataTableCell>
+                  <DataTableCell className="text-muted">
+                    {new Date(p.createdAt).toLocaleDateString()}
+                  </DataTableCell>
+                  <DataTableCell align="right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button asChild variant="secondary" size="sm">
+                        <Link href={`/projects/${p.id}`}>Open</Link>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditModal(p)} disabled={(p as any).isLocked}>
+                            <Pencil className="size-4 mr-2 text-muted" />
+                            Edit Project
+                          </DropdownMenuItem>
+                          {user?.role === "ADMIN" && (
+                            <DropdownMenuItem destructive onClick={() => {
+                              if ((p as any).isLocked) {
+                                toast.error("Project is locked. Cannot delete project.");
+                                return;
+                              }
+                              setDeleteId(p.id);
+                            }} disabled={(p as any).isLocked}>
+                              <Trash2 className="size-4 mr-2" />
+                              Delete Project
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </DataTableCell>
+                </DataTableRow>
+              ))
+            )}
+          </DataTableBody>
+        </DataTable>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8 fade-in">
       <PageHeader
@@ -137,91 +271,30 @@ export default function ProjectsPage() {
         </Button>
       </PageHeader>
 
-      {projects.length === 0 && !query ? (
-        <EmptyState
-          title="No Projects Yet"
-          description="Create your first project to begin tracking finances."
-          actionLabel="Create Project"
-          onAction={openNewModal}
-        />
-      ) : (
-        <div className="space-y-4">
-          <SearchBar
-            query={query}
-            onQueryChange={setQuery}
-            placeholder="Search projects or clients..."
-          />
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} defaultValue="projects">
+        <TabsList>
+          <TabsTrigger value="projects">
+            Projects
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-border/60 px-2 py-0.5 text-[10px] font-semibold text-muted">
+              {unlockedProjects.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="drafts">
+            Project Drafts
+            <span className="ml-1 inline-flex items-center justify-center rounded-full bg-border/60 px-2 py-0.5 text-[10px] font-semibold text-muted">
+              {lockedProjects.length}
+            </span>
+          </TabsTrigger>
+        </TabsList>
 
-          <DataTable>
-            <DataTableHeader>
-              <DataTableHeaderRow>
-                <DataTableHead>Project Name</DataTableHead>
-                <DataTableHead>Client</DataTableHead>
-                <DataTableHead>Location</DataTableHead>
-                <DataTableHead align="right">Budget</DataTableHead>
-                <DataTableHead>Created</DataTableHead>
-                <DataTableHead align="right">Actions</DataTableHead>
-              </DataTableHeaderRow>
-            </DataTableHeader>
-            <DataTableBody>
-              {filteredProjects.length === 0 ? (
-                <DataTableEmpty colSpan={6}>No projects found matching your search.</DataTableEmpty>
-              ) : (
-                filteredProjects.map((p) => (
-                  <DataTableRow key={p.id}>
-                    <DataTableCell>
-                      <div className="flex items-center gap-2">
-                        <Link href={`/projects/${p.id}`} className="font-medium text-text hover:text-primary transition-colors">
-                          {p.name}
-                        </Link>
-                        {(p as any).visibility === "PRIVATE" && (
-                          <span className="inline-flex items-center rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">
-                            Private
-                          </span>
-                        )}
-                      </div>
-                    </DataTableCell>
-                    <DataTableCell className="text-muted">{p.client?.name || "—"}</DataTableCell>
-                    <DataTableCell className="text-muted">{p.location || "—"}</DataTableCell>
-                    <DataTableCell align="right">
-                      <MoneyText amount={p.budget} />
-                    </DataTableCell>
-                    <DataTableCell className="text-muted">
-                      {new Date(p.createdAt).toLocaleDateString()}
-                    </DataTableCell>
-                    <DataTableCell align="right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button asChild variant="secondary" size="sm">
-                          <Link href={`/projects/${p.id}`}>Open</Link>
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditModal(p)}>
-                              <Pencil className="size-4 mr-2 text-muted" />
-                              Edit Project
-                            </DropdownMenuItem>
-                            {user?.role === "ADMIN" && (
-                              <DropdownMenuItem destructive onClick={() => setDeleteId(p.id)}>
-                                <Trash2 className="size-4 mr-2" />
-                                Delete Project
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </DataTableCell>
-                  </DataTableRow>
-                ))
-              )}
-            </DataTableBody>
-          </DataTable>
-        </div>
-      )}
+        <TabsContent value="projects">
+          {renderProjectTable(filteredUnlocked, false)}
+        </TabsContent>
+
+        <TabsContent value="drafts">
+          {renderProjectTable(filteredLocked, true)}
+        </TabsContent>
+      </Tabs>
 
       {/* Add/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -309,6 +382,12 @@ export default function ProjectsPage() {
         confirmLabel="Delete Project"
         onConfirm={() => {
           if (deleteId) {
+            const delProject = projects.find((p) => p.id === deleteId);
+            if (delProject?.isLocked) {
+              toast.error("Project is locked. Cannot delete project.");
+              setDeleteId(null);
+              return;
+            }
             deleteMutation.mutate(deleteId, {
               onSuccess: () => {
                 setDeleteId(null);
