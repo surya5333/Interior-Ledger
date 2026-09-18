@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock } from "lucide-react";
+import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown } from "lucide-react";
 
 import { useLedger, useCreateTransaction, useUpdateTransaction, useDeleteTransaction, LedgerTransaction } from "../../../hooks/use-ledger";
 import { useContacts } from "../../../hooks/use-contacts";
@@ -133,6 +133,8 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
   const [lockConfirmOpen, setLockConfirmOpen] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(true);
+  const quickEntryRef = useRef<HTMLDivElement | null>(null);
   const lastContactWorkflowRef = useRef<Pick<TransactionFormData, "contactName" | "category" | "type">>({
     contactName: "",
     category: "",
@@ -435,7 +437,15 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
           )
         )}
         {!isLocked && (
-          <Button onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}>
+          <Button
+            onClick={() => {
+              setIsQuickEntryOpen(true);
+              // Avoid layout thrashing: run DOM side effect after state commit
+              setTimeout(() => {
+                quickEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+              }, 0);
+            }}
+          >
             <Plus className="size-5 mr-1.5" />
             Add Entry
           </Button>
@@ -620,23 +630,44 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* STICKY QUICK ENTRY BAR */}
-      <div className="fixed bottom-0 left-0 lg:left-[280px] right-0 bg-white border-t border-border shadow-[0_-4px_24px_rgba(0,0,0,0.04)] z-40 p-4 animate-in slide-up">
+      <div ref={quickEntryRef} className="fixed bottom-0 left-0 lg:left-[280px] right-0 bg-white border-t border-border shadow-[0_-4px_24px_rgba(0,0,0,0.04)] z-40 p-4 animate-in slide-up">
         <div className="w-full max-w-[1800px] px-6 lg:px-10">
           {isLocked ? (
-            <div className="flex items-center justify-center gap-2 py-3">
-              <Lock className="size-4 text-warning" />
-              <p className="text-sm font-medium text-warning">
-                View only — project is locked. Contact the Owner to unlock for changes.
-              </p>
+            <div className="flex items-center justify-between gap-2 py-2">
+              <div className="flex items-center justify-center gap-2 py-1 flex-1">
+                <Lock className="size-4 text-warning" />
+                <p className="text-sm font-medium text-warning">
+                  View only — project is locked. Contact the Owner to unlock for changes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickEntryOpen((v) => !v)}
+                aria-label={isQuickEntryOpen ? "Collapse Quick Entry" : "Expand Quick Entry"}
+                className="shrink-0 size-8 inline-flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-muted/40 transition-colors"
+              >
+                {isQuickEntryOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              </button>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-text text-sm uppercase tracking-wider">{editingId ? "Edit Transaction" : "Quick Entry"}</h3>
-                {editingId && (
-                    <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-6 px-2 text-xs">Cancel Edit</Button>
-                )}
+                <div className="flex items-center gap-3 min-w-0">
+                  <h3 className="font-semibold text-text text-sm uppercase tracking-wider">{editingId ? "Edit Transaction" : "Quick Entry"}</h3>
+                  {editingId && (
+                      <Button variant="ghost" size="sm" onClick={cancelEdit} className="h-6 px-2 text-xs shrink-0">Cancel Edit</Button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsQuickEntryOpen((v) => !v)}
+                  aria-label={isQuickEntryOpen ? "Collapse Quick Entry" : "Expand Quick Entry"}
+                  className="shrink-0 size-8 inline-flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-muted/40 transition-colors"
+                >
+                  {isQuickEntryOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                </button>
               </div>
+              {isQuickEntryOpen ? (
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
                 <label className="flex items-center gap-2.5 text-sm font-medium text-text cursor-pointer select-none">
                   <input
@@ -648,20 +679,20 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   Payment Received From Client
                 </label>
 
-                <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
-                  <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
+                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
+                  <div className="shrink-0 min-w-[170px] max-w-[200px] space-y-1.5">
                     <Label htmlFor="date" className="text-xs">Date</Label>
-                    <Input id="date" type="date" value={watch("date") ?? ""} {...register("date")} className="h-10 text-sm" error={!!errors.date} />
+                    <Input id="date" type="date" value={watch("date") ?? ""} {...register("date")} className="h-10 text-sm w-full" error={!!errors.date} />
                   </div>
 
                   {!paymentFromClient ? (
-                    <div className="flex-1 min-w-[140px] space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Label htmlFor="type" className="text-xs">Type</Label>
                       <NativeSelect
                         id="type"
                         value={watch("type") ?? "debit"}
                         {...register("type")}
-                        className={cn("h-10 text-sm", entryType === "credit" ? "text-credit" : "text-debit")}
+                        className={cn("h-10 text-sm min-w-0 w-full", entryType === "credit" ? "text-credit" : "text-debit")}
                         error={!!errors.type}
                       >
                         <option value="debit">Debit (Spent)</option>
@@ -671,26 +702,26 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   ) : null}
 
                   {paymentFromClient ? (
-                    <div className="flex-1 min-w-[160px] space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Label htmlFor="clientName" className="text-xs">Client</Label>
                       <Input
                         id="clientName"
                         value={ledger?.client?.name ?? ""}
                         readOnly
-                        className="h-10 text-sm bg-[#FAFAF8] cursor-not-allowed"
+                        className="h-10 text-sm bg-[#FAFAF8] cursor-not-allowed min-w-0 w-full"
                       />
                     </div>
                   ) : (
-                    <div className="flex-1 min-w-[160px] space-y-1.5">
+                    <div className="min-w-0 space-y-1.5">
                       <Label htmlFor="contactName" className="text-xs">Contact</Label>
-                      <Input id="contactName" list="contact-list" value={watch("contactName") ?? ""} {...register("contactName")} placeholder="Name..." className="h-10 text-sm" error={!!errors.contactName} />
+                      <Input id="contactName" list="contact-list" value={watch("contactName") ?? ""} {...register("contactName")} placeholder="Name..." className="h-10 text-sm min-w-0 w-full" error={!!errors.contactName} />
                       <datalist id="contact-list">
                         {contacts.map((c) => <option key={c.id} value={c.name} />)}
                       </datalist>
                     </div>
                   )}
 
-                  <div className="flex-1 min-w-[140px] space-y-1.5">
+                  <div className="min-w-0 space-y-1.5">
                     <Label htmlFor="category" className="text-xs">Category</Label>
                     <Input
                       id="category"
@@ -699,7 +730,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                       {...register("category")}
                       placeholder="e.g. Labor"
                       readOnly={paymentFromClient}
-                      className={cn("h-10 text-sm", paymentFromClient && "bg-[#FAFAF8] cursor-not-allowed")}
+                      className={cn("h-10 text-sm min-w-0 w-full", paymentFromClient && "bg-[#FAFAF8] cursor-not-allowed")}
                       error={!!errors.category}
                     />
                     {!paymentFromClient ? (
@@ -709,13 +740,13 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                     ) : null}
                   </div>
 
-                  <div className="flex-1 min-w-[140px] space-y-1.5">
+                  <div className="min-w-0 space-y-1.5">
                     <Label htmlFor="paymentMode" className="text-xs">Payment Mode</Label>
                     <NativeSelect
                       id="paymentMode"
                       value={watch("paymentMode") ?? "CASH"}
                       {...register("paymentMode")}
-                      className="h-10 text-sm"
+                      className="h-10 text-sm min-w-0 w-full"
                       error={!!errors.paymentMode}
                     >
                       {paymentModeOptions.map((option) => (
@@ -724,17 +755,19 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                     </NativeSelect>
                   </div>
 
-                  <div className="flex-[1.5] min-w-[180px] space-y-1.5">
+                  <div className="min-w-0 space-y-1.5">
                     <Label htmlFor="description" className="text-xs">Description</Label>
-                    <Input id="description" value={watch("description") ?? ""} {...register("description")} placeholder="Optional details..." className="h-10 text-sm" error={!!errors.description} />
+                    <Input id="description" value={watch("description") ?? ""} {...register("description")} placeholder="Optional details..." className="h-10 text-sm min-w-0 w-full" error={!!errors.description} />
                   </div>
 
-                  <div className="flex-1 min-w-[120px] max-w-[140px] space-y-1.5">
+                  <div className="min-w-0 space-y-1.5">
                     <Label htmlFor="amount" className="text-xs">Amount (₹)</Label>
-                    <Input id="amount" type="number" step="0.01" value={watch("amount") ?? ""} {...register("amount")} placeholder="0.00" className="h-10 text-sm font-[tabular-nums]" error={!!errors.amount} />
+                    <Input id="amount" type="number" step="0.01" value={watch("amount") ?? ""} {...register("amount")} placeholder="0.00" className="h-10 text-sm font-[tabular-nums] min-w-0 w-full" error={!!errors.amount} />
                   </div>
+                </div>
 
-                  <Button type="submit" size="default" className="h-10 shrink-0 min-w-[100px]" loading={isSubmitting || uploadingProof} disabled={uploadingProof}>
+                <div className="flex justify-end">
+                  <Button type="submit" size="default" className="h-10 shrink-0 min-w-[120px]" loading={isSubmitting || uploadingProof} disabled={uploadingProof}>
                     {editingId ? "Save" : "Add Entry"}
                   </Button>
                 </div>
@@ -778,6 +811,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   </div>
                 ) : null}
               </form>
+              ) : null}
             </>
           )}
         </div>

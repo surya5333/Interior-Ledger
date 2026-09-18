@@ -23,6 +23,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "transition-all duration-150",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+          type === "date" && "pr-10",
           error
             ? "border-danger focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger"
             : "border-border focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary",
