@@ -8,16 +8,20 @@ export const DASHBOARD_COLORS = {
   transactions: { bg: "bg-slate-50", text: "text-slate-700", icon: "text-slate-600", chart: "#475569" },
 } as const;
 
-export const PAYMENT_MODE_LABELS: Record<"CASH" | "UPI" | "CARD" | "OTHER", string> = {
+export const PAYMENT_MODE_LABELS: Record<"CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER", string> = {
   CASH: "Cash",
   UPI: "UPI",
   CARD: "Card",
+  NEFT: "NEFT",
+  IMPS: "IMPS",
   OTHER: "Other",
 };
 
-export const PAYMENT_MODE_CHART_COLORS: Record<"CASH" | "UPI" | "CARD" | "OTHER", string> = {
+export const PAYMENT_MODE_CHART_COLORS: Record<"CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER", string> = {
   CASH: "#059669",
   UPI: "#7c3aed",
   CARD: "#0284c7",
+  NEFT: "#d97706",
+  IMPS: "#4f46e5",
   OTHER: "#78716c",
 };

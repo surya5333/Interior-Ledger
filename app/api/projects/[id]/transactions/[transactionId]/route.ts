@@ -165,9 +165,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    if (paymentMode !== "UPI" && paymentProofUrl) {
+    if (paymentMode && !["UPI", "NEFT", "IMPS"].includes(paymentMode) && paymentProofUrl) {
       return NextResponse.json(
-        { error: "Payment proof is only supported for UPI transactions." },
+        { error: "Payment proof is only supported for UPI, NEFT, and IMPS transactions." },
         { status: 400 }
       );
     }
@@ -182,7 +182,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           description: body.description,
           credit: body.credit,
           debit: 0,
-          paymentMode,
+          paymentMode: paymentMode as any,
           paymentProofUrl,
           ...(body.date ? { date: body.date } : {}),
         },
@@ -209,7 +209,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         description: body.description,
         credit: nextCredit,
         debit: nextDebit,
-        paymentMode,
+        paymentMode: paymentMode as any,
         paymentProofUrl,
         ...(body.date ? { date: body.date } : {}),
       },

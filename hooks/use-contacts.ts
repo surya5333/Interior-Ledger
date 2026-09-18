@@ -17,7 +17,7 @@ export interface ContactDetail {
       date: string;
       category: string;
       description: string | null;
-      paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentMode: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
       paymentProofUrl: string | null;
       credit: string;
       debit: string;

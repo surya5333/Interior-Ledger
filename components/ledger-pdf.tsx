@@ -1,138 +1,492 @@
-import { Document, Page, View, Text, Image, StyleSheet, Font, Svg, Path, Circle, Rect, Defs, LinearGradient, Stop } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Font,
+  Svg,
+  Path,
+  Circle,
+  Rect,
+  Line,
+  Polygon,
+} from "@react-pdf/renderer";
 import { registerPdfFonts, formatCurrency } from "../lib/pdf-utils";
 
 Font.registerHyphenationCallback((word) => [word]);
 registerPdfFonts();
 
-const BRAND_GOLD = "#b89968";
-const BRAND_GOLD_ACCENT = "#c9a872";
-const BRAND_NAVY = "#1a2732";
-const BRAND_DARK = "#1f2923";
-const BRAND_MUTED = "#71766f";
-const BRAND_DIVIDER = "#dcd9d3";
-const SOCIAL_INSTAGRAM_START = "#833AB4";
-const SOCIAL_FACEBOOK = "#1877F2";
-const SOCIAL_YOUTUBE = "#FF0000";
-const SOCIAL_X = "#000000";
-const SOCIAL_PINTEREST = "#BD081C";
-const SOCIAL_LINKEDIN = "#0A66C2";
+// ============================================================
+// PALETTE  — NAVY + GOLD + GREEN + RED + WHITE
+// ============================================================
+const NAVY = "#0f2544";
+const NAVY_DARK = "#0a1b36";
+const NAVY_SOFT = "#e3eaf3";
+const NAVY_TABLE_ROW_ALT = "#f6f9fc";
+const GOLD = "#c9a24c";
+const GOLD_LINE = "#d6b767";
+const GREEN = "#1f7a3e";
+const GREEN_DARK = "#145a2d";
+const GREEN_SOFT = "#e2f1e7";
+const GREEN_SOFT_BG = "#dff3e6";
+const RED = "#b42318";
+const RED_SOFT = "#fde3e0";
+const TEAL_SOFT = "#dff4ee";
+const BORDER_SUBTLE = "#d7deea";
+const DARK = "#1c2434";
+const MUTED = "#606b7e";
+const CARD_BG = "#ffffff";
+const PAGE_BG = "#ffffff";
 
+const DEFAULT_PHONE = "+91 93931 41224";
+
+// ============================================================
+// STYLESHEET
+// ============================================================
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 9, fontFamily: "NotoSans", color: BRAND_DARK, flexDirection: "column", minHeight: "100%" },
-  pageBody: { flexGrow: 1, flexDirection: "column" },
-  header: { marginBottom: 20 },
-  brandRow: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  brandColumn: { flexDirection: "column" },
-  logoImage: { width: 32, height: 32, borderRadius: 2, marginRight: 10, objectFit: "cover" },
-  brandMark: { width: 32, height: 32, backgroundColor: "#31563d", borderRadius: 2, justifyContent: "center", alignItems: "center", marginRight: 10 },
-  brandText: { color: "#fff", fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" as any },
-  companyName: { fontSize: 14, fontFamily: "NotoSans", fontWeight: "bold" as any },
-  companyPhone: { fontSize: 9, color: BRAND_MUTED, marginTop: 2, fontFamily: "NotoSans" },
-  divider: { height: 1, backgroundColor: BRAND_DIVIDER, marginVertical: 10 },
-  metaRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  metaLabel: { color: BRAND_MUTED, fontSize: 8, textTransform: "uppercase" as any, letterSpacing: 0.5 },
-  metaValue: { fontSize: 10, fontFamily: "NotoSans", fontWeight: "bold" as any },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", marginVertical: 12, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#e9e6df" },
-  summaryItem: { flex: 1 },
-  summaryLabel: { fontSize: 7, color: BRAND_MUTED, textTransform: "uppercase" as any, letterSpacing: 0.5, marginBottom: 4 },
-  summaryValue: { fontSize: 12, fontFamily: "NotoSans", fontWeight: "bold" as any },
-  creditColor: { color: "#31563d" },
-  tableHeader: { flexDirection: "row", borderBottomWidth: 1, borderColor: BRAND_DIVIDER, paddingBottom: 6, marginBottom: 4 },
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#eeece7", paddingVertical: 6 },
-  th: { fontSize: 7, fontFamily: "NotoSans", fontWeight: "bold" as any, color: "#777a73", textTransform: "uppercase" as any, letterSpacing: 0.5 },
-  td: { fontSize: 8, fontFamily: "NotoSans" },
-  colDate: { width: "12%" },
-  colContact: { width: "15%" },
-  colCategory: { width: "13%" },
-  colPayment: { width: "14%" },
-  colDesc: { width: "14%" },
-  colMoney: { width: "10%", textAlign: "right" },
-  footer: { marginTop: 20 },
-  signatureArea: { flexDirection: "row", justifyContent: "space-between", marginTop: 40 },
-  signatureWrapper: { width: "40%" },
-  signatureImage: { height: 40, objectFit: "contain", marginBottom: 5 },
-  signatureBlock: { borderTopWidth: 1, borderColor: BRAND_DARK, paddingTop: 6 },
-  signatureLabel: { fontSize: 8, color: BRAND_MUTED },
-  pageNumber: { position: "absolute", bottom: 14, right: 40, fontSize: 7, color: BRAND_MUTED, zIndex: 10 },
-  brandFooter: {
-    marginTop: 16,
+  page: {
+    padding: 0,
+    fontSize: 9,
+    fontFamily: "NotoSans",
+    color: DARK,
+    flexDirection: "column",
+    backgroundColor: PAGE_BG,
+  },
+  pageFlow: {
+    flexGrow: 1,
+    flexDirection: "column",
+    minHeight: "100%",
+  },
+  headerBanner: {
+    width: "100%",
+    objectFit: "contain",
+  },
+  footerBanner: {
+    width: "100%",
+    objectFit: "contain",
+  },
+  content: {
+    paddingHorizontal: 40,
     paddingTop: 12,
-    paddingBottom: 0,
-    position: "relative" as any,
+    paddingBottom: 10,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexDirection: "column",
   },
-  footerTaglineTop: {
+  spacer: {
+    flexGrow: 1,
+    minHeight: 8,
+  },
+
+  // ---------- GOLD SECTION DIVIDER ----------
+  goldDivider: {
+    width: "100%",
+    height: 1,
+    backgroundColor: GOLD_LINE,
+    marginVertical: 10,
+    opacity: 0.85,
+  },
+
+  // ---------- PROJECT HEADER (2 columns) ----------
+  projectHeaderRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 0,
   },
-  footerGoldLine: {
-    width: 100,
-    height: 1.2,
-    backgroundColor: BRAND_GOLD,
-    marginHorizontal: 14,
+  projectLeft: {
+    width: "62%",
+    paddingRight: 20,
+    paddingTop: 1,
   },
-  footerTaglineText: {
-    fontSize: 8.5,
-    color: BRAND_DARK,
-    fontFamily: "NotoSans",
-    letterSpacing: 4,
-    fontWeight: "bold" as any,
-  },
-  footerLocationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-  },
-  footerLocationText: {
+  projectLedgerLabel: {
     fontSize: 11,
-    color: BRAND_DARK,
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 3.2,
     fontFamily: "NotoSans",
-    marginLeft: 8,
+    marginBottom: 5,
+  },
+  projectName: {
+    fontSize: 22,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 0.3,
+    lineHeight: 1.15,
+    marginBottom: 6,
+  },
+  clientLine: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  clientLabel: {
+    fontSize: 9.5,
+    color: MUTED,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
     letterSpacing: 0.5,
+    marginRight: 6,
   },
-  footerLocationSep: {
-    marginHorizontal: 10,
-    color: BRAND_MUTED,
-    fontSize: 11,
+  clientValue: {
+    fontSize: 10.5,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
   },
-  footerSocialRow: {
+
+  projectRight: {
+    width: "38%",
+    paddingLeft: 22,
+    borderLeftWidth: 1.4,
+    borderLeftColor: GOLD_LINE,
+    paddingTop: 0,
+  },
+  rightStackRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 7,
+  },
+  rightStackRowLast: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 0,
+  },
+  rightIconWrap: {
+    width: 23,
+    height: 23,
+    borderRadius: 11.5,
+    backgroundColor: NAVY_SOFT,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginRight: 8,
+    marginTop: 0,
   },
-  footerSocialBadge: {
+  rightTextCol: {
+    flexDirection: "column",
+    flexShrink: 1,
+  },
+  rightFieldLabel: {
+    fontSize: 7,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 1.6,
+    marginBottom: 2,
+  },
+  rightFieldValue: {
+    fontSize: 10,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: DARK,
+  },
+
+  // ---------- FINANCIAL CARDS ----------
+  summaryRow: {
+    flexDirection: "row",
+    marginHorizontal: -10,
+    marginBottom: 4,
+  },
+  summaryCard: {
+    flex: 1,
+    marginHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: BORDER_SUBTLE,
+    backgroundColor: CARD_BG,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
+  summaryIconLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 4,
+  },
+  summaryIconBg: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  summaryLabel: {
+    fontSize: 5.6,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    letterSpacing: 1.2,
+    color: MUTED,
+  },
+  summaryAmount: {
+    fontSize: 10,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    lineHeight: 1.10,
+  },
+  // green credit
+  creditBg: { backgroundColor: GREEN_SOFT_BG },
+  creditText: { color: GREEN_DARK },
+  // red debit
+  debitBg: { backgroundColor: RED_SOFT },
+  debitText: { color: RED },
+  // green balance
+  balanceBg: { backgroundColor: GREEN_SOFT },
+  balanceText: { color: GREEN_DARK },
+
+  // ---------- TRANSACTION DETAILS TITLE ----------
+  txTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  txTitleIconWrap: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 8,
+    backgroundColor: NAVY_SOFT,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 6,
+    marginRight: 10,
   },
-  footerTaglineBottom: {
+  txTitleText: {
+    fontSize: 11.5,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 1.6,
+  },
+
+  // ---------- TRANSACTION TABLE ----------
+  tableOuter: {
+    borderWidth: 1,
+    borderColor: BORDER_SUBTLE,
+    borderRadius: 10,
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+  },
+  tableHead: {
+    flexDirection: "row",
+    backgroundColor: NAVY,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  th: {
+    fontSize: 7.2,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: "#ffffff",
+    letterSpacing: 0.6,
+    textTransform: "uppercase" as any,
+  },
+  tableBody: {
+    flexDirection: "column",
+  },
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eef2f7",
+    alignItems: "center",
+  },
+  tableRowAlt: {
+    backgroundColor: NAVY_TABLE_ROW_ALT,
+  },
+  td: {
+    fontSize: 8,
+    fontFamily: "NotoSans",
+    color: DARK,
+    textAlignVertical: "center" as any,
+  },
+  // col widths — FULL 8-col layout
+  colDate: { width: "11%" },
+  colContact: { width: "13%" },
+  colCategory: { width: "13%" },
+  colPayment: { width: "13%" },
+  colDesc: { width: "16%" },
+  colMoney: { width: "11%", textAlign: "right" },
+  // col widths — RESTRICTED 6-col layouts (client / contact)
+  colDate6: { width: "14%" },
+  colContact6: { width: "17%" },
+  colCategory6: { width: "17%" },
+  colPayment6: { width: "17%" },
+  colDesc6: { width: "20%" },
+  colMoney6: { width: "15%", textAlign: "right" },
+  // single summary card — centered full width
+  summarySingle: {
+    flex: 1,
+    marginHorizontal: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: BORDER_SUBTLE,
+    backgroundColor: CARD_BG,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
+
+  // badges
+  badge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 50,
+    fontSize: 6.8,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    letterSpacing: 0.3,
+    overflow: "hidden",
+  },
+  catBadge: {
+    backgroundColor: NAVY_SOFT,
+    color: NAVY_DARK,
+  },
+  payBadge: {
+    backgroundColor: TEAL_SOFT,
+    color: "#0e6d5c",
+  },
+
+  // empty
+  emptyRow: {
+    paddingVertical: 22,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: MUTED,
+    fontSize: 8,
+    fontFamily: "NotoSans",
+  },
+
+  // ---------- SIGNATURES ----------
+  sigArea: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 24,
+    marginHorizontal: -18,
+  },
+  sigCol: {
+    width: "44%",
+    marginHorizontal: 18,
+  },
+  sigHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 10,
+    marginBottom: 10,
   },
-  footerTaglineBottomText: {
-    fontSize: 8,
-    color: BRAND_DARK,
+  sigIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: NAVY_SOFT,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  sigHeaderText: {
+    fontSize: 8.5,
     fontFamily: "NotoSans",
-    letterSpacing: 3,
-    fontWeight: "bold" as any,
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 1,
+  },
+  preparedBranding: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  preparedLogo: {
+    width: 30,
+    height: 30,
+    objectFit: "contain",
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  preparedLogoFallback: {
+    width: 30,
+    height: 30,
+    borderRadius: 3,
+    backgroundColor: NAVY,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  preparedLogoFallbackTxt: {
+    color: GOLD,
+    fontSize: 9,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+  },
+  preparedName: {
+    fontSize: 9,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+  },
+  sigImage: {
+    height: 38,
+    objectFit: "contain",
+    marginBottom: 4,
+  },
+  sigRule: {
+    borderTopWidth: 1,
+    borderTopColor: "#8a97ad",
+    paddingTop: 5,
+  },
+  sigRuleLabel: {
+    fontSize: 7.5,
+    color: MUTED,
+    letterSpacing: 0.3,
+  },
+  sigRuleName: {
+    fontSize: 8.5,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: DARK,
+    marginTop: 1.5,
+  },
+  sigRightAlign: {
+    alignItems: "flex-end",
+  },
+  sigRightAlignRule: {
+    alignItems: "flex-end",
+  },
+  sigHeaderTextClean: {
+    fontSize: 9,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+    letterSpacing: 0.3,
+  },
+  sigNameText: {
+    fontSize: 9,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: DARK,
+  },
+  sigRuleOnly: {
+    width: "100%",
+    borderTopWidth: 1,
+    borderTopColor: "#8a97ad",
   },
 });
 
+// ============================================================
+// TYPES
+// ============================================================
 type LedgerTransaction = {
   id: string;
   date: string;
-  contact: { id: string; name: string; category: string; };
+  contact: { id: string; name: string; category: string };
   category: string;
   description?: string | null;
-  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentMode: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
   paymentProofUrl: string | null;
   credit: string;
   debit: string;
@@ -146,12 +500,15 @@ type LedgerData = {
   transactions: LedgerTransaction[];
 };
 
+// ============================================================
+// HELPERS
+// ============================================================
 function getInitials(name: string): string {
   return name
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
+    .map((w) => w[0]?.toUpperCase() || "")
     .join("");
 }
 
@@ -160,316 +517,547 @@ function formatPaymentLabel(transaction: LedgerTransaction) {
     CASH: "Cash",
     UPI: "UPI",
     CARD: "Card",
+    NEFT: "NEFT",
+    IMPS: "IMPS",
     OTHER: "Other",
   };
-
-  return transaction.paymentMode === "UPI" && transaction.paymentProofUrl
-    ? `${labelMap[transaction.paymentMode]} (proof attached)`
+  const proofModes: ReadonlyArray<LedgerTransaction["paymentMode"]> = ["UPI", "NEFT", "IMPS"];
+  return proofModes.includes(transaction.paymentMode) && transaction.paymentProofUrl
+    ? `${labelMap[transaction.paymentMode]} (proof)`
     : labelMap[transaction.paymentMode];
 }
 
-function LocationPinIcon() {
+// ============================================================
+// ICONS (inline SVG, react-pdf compatible) — ALL NAVY
+// ============================================================
+
+// Calendar / Date icon (navy)
+function IconDate() {
   return (
-    <Svg width="16" height="16" viewBox="0 0 24 24">
-      <Path
-        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-        fill={BRAND_GOLD}
-        stroke={BRAND_GOLD}
-        strokeWidth="1"
-      />
-      <Circle cx="12" cy="9" r="3" fill="#ffffff" />
+    <Svg width="14" height="14" viewBox="0 0 24 24">
+      <Rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke={NAVY} strokeWidth="2" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={NAVY} strokeWidth="1.6" />
+      <Line x1="8" y1="3" x2="8" y2="7" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="16" y1="3" x2="16" y2="7" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
+      <Circle cx="8.5" cy="14" r="1" fill={NAVY} />
+      <Circle cx="12" cy="14" r="1" fill={NAVY} />
+      <Circle cx="15.5" cy="14" r="1" fill={NAVY} />
     </Svg>
   );
 }
 
-function InstagramBadge() {
+// Person / Client icon (navy)
+function IconClient() {
   return (
-    <View style={[s.footerSocialBadge, { padding: 0 }]}>
-      <Svg width="30" height="30" viewBox="0 0 48 48">
-        <Defs>
-          <LinearGradient id="igGradLedger" x1="0%" y1="100%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor="#F58529" />
-            <Stop offset="35%" stopColor="#DD2A7B" />
-            <Stop offset="100%" stopColor="#8134AF" />
-          </LinearGradient>
-        </Defs>
-        <Circle cx="24" cy="24" r="23" fill="url(#igGradLedger)" />
-        <Circle cx="24" cy="24" r="15" stroke="#ffffff" strokeWidth="2.2" fill="none" />
-        <Circle cx="24" cy="24" r="8" stroke="#ffffff" strokeWidth="2.2" fill="none" />
-        <Circle cx="32" cy="16" r="2.5" fill="#ffffff" />
-      </Svg>
-    </View>
-  );
-}
-
-function FacebookBadge() {
-  return (
-    <View style={[s.footerSocialBadge, { backgroundColor: SOCIAL_FACEBOOK }]}>
-      <Svg width="30" height="30" viewBox="0 0 24 24">
-        <Path
-          d="M13.5 22v-8h3l.5-3.5h-3.5V8.2c0-1 .3-1.7 1.7-1.7H17V3.3C16.4 3.2 15.2 3 13.9 3c-2.5 0-4.2 1.5-4.2 4.3v3.2H6.5V14h3.2v8h3.8z"
-          fill="#ffffff"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-function YouTubeBadge() {
-  return (
-    <View style={[s.footerSocialBadge, { backgroundColor: SOCIAL_YOUTUBE }]}>
-      <Svg width="30" height="30" viewBox="0 0 24 24">
-        <Path
-          d="M21.6 7.2c-.2-.8-.9-1.5-1.7-1.7C18.3 5 12 5 12 5s-6.3 0-7.9.5c-.8.2-1.5.9-1.7 1.7C1.9 8.8 1.9 12 1.9 12s0 3.2.5 4.8c.2.8.9 1.5 1.7 1.7 1.6.5 7.9.5 7.9.5s6.3 0 7.9-.5c.8-.2 1.5-.9 1.7-1.7.5-1.6.5-4.8.5-4.8s0-3.2-.4-4.8zM10 15.5v-7l6 3.5-6 3.5z"
-          fill="#ffffff"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-function XBadge() {
-  return (
-    <View style={[s.footerSocialBadge, { backgroundColor: SOCIAL_X }]}>
-      <Svg width="30" height="30" viewBox="0 0 24 24">
-        <Path
-          d="M17.5 3h3l-6.5 7.4L22 21h-6.1l-4.8-6.3L5.5 21h-3l7-8L2.5 3h6.2l4.3 5.7L17.5 3zm-1.1 16h1.7L7.7 5H5.9l10.5 14z"
-          fill="#ffffff"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-function PinterestBadge() {
-  return (
-    <View style={[s.footerSocialBadge, { backgroundColor: SOCIAL_PINTEREST }]}>
-      <Svg width="30" height="30" viewBox="0 0 24 24">
-        <Path
-          d="M12 2C6.5 2 2 6.5 2 12c0 4.2 2.6 7.8 6.3 9.3-.1-.8-.2-2 0-2.9l1.3-5.4s-.3-.6-.3-1.5c0-1.4.8-2.5 1.8-2.5.9 0 1.3.7 1.3 1.5 0 .9-.6 2.2-.9 3.4-.3 1 .5 1.8 1.4 1.8 1.7 0 3-1.8 3-4.4 0-2.3-1.7-3.9-4-3.9-2.8 0-4.4 2.1-4.4 4.2 0 .8.3 1.5.7 1.9.1.1.1.2.1.3l-.3 1.1c0 .2-.1.3-.3.2-1-.5-1.6-1.9-1.6-3.1 0-2.5 1.8-4.8 5.2-4.8 2.7 0 4.8 1.9 4.8 4.5 0 2.7-1.7 4.9-4.1 4.9-.8 0-1.6-.4-1.8-.9l-.5 1.9c-.2.7-.7 1.6-1 2.1C9.5 21.9 10.7 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2z"
-          fill="#ffffff"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-function LinkedInBadge() {
-  return (
-    <View style={[s.footerSocialBadge, { backgroundColor: SOCIAL_LINKEDIN }]}>
-      <Svg width="30" height="30" viewBox="0 0 24 24">
-        <Path
-          d="M19 3A2 2 0 0 1 21 5v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14zM8.3 18.3V9.9H5.7v8.4h2.6zM7 8.7a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18.3 18.3v-4.6c0-2.4-1.3-3.5-3-3.5-1.4 0-2 .8-2.3 1.3V9.9h-2.6c.1.8 0 8.4 0 8.4h2.6v-4.7c0-.2 0-.5.1-.6.2-.5.7-1 1.5-1 1 0 1.5.8 1.5 2v4.3h2.2z"
-          fill="#ffffff"
-        />
-      </Svg>
-    </View>
-  );
-}
-
-function BuildingSilhouettes({ side }: { side: "left" | "right" }) {
-  const color = "#e8e4dc";
-  return (
-    <Svg width="80" height="70" viewBox="0 0 80 70" style={{ transform: side === "right" ? "scaleX(-1)" : undefined } as any}>
-      <Path d="M0 70 L0 35 L8 35 L8 28 L14 28 L14 22 L22 22 L22 14 L30 14 L30 30 L40 30 L40 18 L48 18 L48 8 L56 8 L56 26 L64 26 L64 20 L72 20 L72 32 L80 32 L80 70 Z" fill={color} opacity="0.55" />
-      <Rect x="12" y="38" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="12" y="48" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="24" y="30" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="24" y="42" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="34" y="38" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="34" y="50" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="50" y="18" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="50" y="34" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="50" y="46" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="66" y="28" width="4" height="5" fill="#ffffff" opacity="0.7" />
-      <Rect x="66" y="42" width="4" height="5" fill="#ffffff" opacity="0.7" />
+    <Svg width="14" height="14" viewBox="0 0 24 24">
+      <Circle cx="12" cy="8" r="4" fill="none" stroke={NAVY} strokeWidth="2" />
+      <Path
+        d="M4 21c1.6-4 4.6-6 8-6s6.4 2 8 6"
+        fill="none"
+        stroke={NAVY}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
 
-function WaveCurves() {
+// Project / Briefcase icon (navy)
+function IconProject() {
   return (
-    <Svg width="100%" height="55" viewBox="0 0 520 55" preserveAspectRatio="none">
+    <Svg width="14" height="14" viewBox="0 0 24 24">
       <Path
-        d="M0 55 L0 35 C 130 8, 200 8, 260 22 C 320 36, 390 36, 520 10 L 520 55 Z"
-        fill={BRAND_NAVY}
+        d="M3 8a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"
+        fill="none"
+        stroke={NAVY}
+        strokeWidth="2"
+        strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+// Rupee stack / credit icon (green tint)
+function IconCredit() {
+  return (
+    <Svg width="18" height="18" viewBox="0 0 24 24">
       <Path
-        d="M0 55 L0 30 C 130 5, 200 5, 260 18 C 320 32, 390 32, 520 6 L 520 55 Z"
-        fill={BRAND_GOLD_ACCENT}
-        opacity="0.95"
-      />
-      <Path
-        d="M0 55 L0 26 C 130 2, 200 2, 260 15 C 320 28, 390 28, 520 3 L 520 55 Z"
-        fill={BRAND_GOLD}
+        d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 14.8 7.1 17.2 8 11.7 4 7.8l5.5-.8L12 2z"
+        fill={GREEN_DARK}
         opacity="0.9"
       />
+      <Line x1="6" y1="20" x2="18" y2="20" stroke={GREEN_DARK} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-export function LedgerPDF({ ledger, companyName, logoUrl, signatureUrl }: { ledger: LedgerData; companyName: string; logoUrl?: string | null; signatureUrl?: string | null; }) {
+// Arrow down / debit icon (red tint)
+function IconDebit() {
+  return (
+    <Svg width="18" height="18" viewBox="0 0 24 24">
+      <Path d="M12 4v14" stroke={RED} strokeWidth="2.2" strokeLinecap="round" />
+      <Polygon points="6,14 12,20 18,14" fill={RED} />
+      <Line x1="6" y1="20" x2="18" y2="20" stroke={RED} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Wallet / balance icon (dark green)
+function IconBalance() {
+  return (
+    <Svg width="18" height="18" viewBox="0 0 24 24">
+      <Path
+        d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5V8H3V7.5z"
+        fill={GREEN_DARK}
+        opacity="0.22"
+      />
+      <Path
+        d="M3 8v9A2.5 2.5 0 0 0 5.5 19.5h13a2.5 2.5 0 0 0 2.5-2.5V8"
+        fill="none"
+        stroke={GREEN_DARK}
+        strokeWidth="1.8"
+      />
+      <Line x1="3" y1="8" x2="21" y2="8" stroke={GREEN_DARK} strokeWidth="1.8" />
+      <Circle cx="17" cy="13.5" r="1.5" fill={GREEN_DARK} />
+    </Svg>
+  );
+}
+
+// Document / table / ledger (navy)
+function IconTx() {
+  return (
+    <Svg width="18" height="18" viewBox="0 0 24 24">
+      <Rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="2.5"
+        fill="none"
+        stroke={NAVY}
+        strokeWidth="2"
+      />
+      <Line x1="3" y1="8.5" x2="21" y2="8.5" stroke={NAVY} strokeWidth="1.6" />
+      <Line x1="3" y1="13.5" x2="21" y2="13.5" stroke={NAVY} strokeWidth="1.2" opacity="0.7" />
+      <Line x1="9" y1="3" x2="9" y2="21" stroke={NAVY} strokeWidth="1.2" opacity="0.7" />
+      <Circle cx="5.8" cy="5.8" r="1" fill={NAVY} />
+      <Circle cx="11.5" cy="5.8" r="1" fill={NAVY} />
+    </Svg>
+  );
+}
+
+// Pen / Prepared by (navy)
+function IconPrepared() {
+  return (
+    <Svg width="12" height="12" viewBox="0 0 24 24">
+      <Path
+        d="M4 20l4.5-1 9-9-3.5-3.5-9 9L4 20z"
+        fill="none"
+        stroke={NAVY}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <Path d="M14.5 5.5l3.5 3.5" stroke={NAVY} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// Signature / client signature (navy squiggle)
+function IconSignature() {
+  return (
+    <Svg width="12" height="12" viewBox="0 0 24 24">
+      <Path
+        d="M3 18c3-3 4-7 6-7s2 6 5 6 3-5 5-6 2 7 2 7"
+        fill="none"
+        stroke={NAVY}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line x1="3" y1="19" x2="21" y2="19" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ============================================================
+// COMPONENT
+// ============================================================
+export type LedgerPDFViewMode = "full" | "client" | "contact";
+
+export function LedgerPDF({
+  ledger,
+  companyName,
+  logoUrl,
+  signatureUrl,
+  phone = DEFAULT_PHONE,
+  headerBannerUrl,
+  footerBannerUrl,
+  viewMode = "full",
+}: {
+  ledger: LedgerData;
+  companyName: string;
+  logoUrl?: string | null;
+  signatureUrl?: string | null;
+  phone?: string | null;
+  headerBannerUrl?: string | null;
+  footerBannerUrl?: string | null;
+  viewMode?: LedgerPDFViewMode;
+}) {
+  void phone; // banner already contains branding; Settings integration slot preserved
+  const isClientView = viewMode === "client";
+  const isContactView = viewMode === "contact";
+  const isFullView = viewMode === "full";
+  const isRestricted = isClientView || isContactView;
+  const exportDate = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
   return (
     <Document title={`${ledger.project.name} - Ledger`} author={companyName}>
       <Page size="A4" style={s.page}>
-        <View style={s.pageBody}>
-          {/* Header */}
-          <View style={s.header}>
-            <View style={s.brandRow}>
-              {logoUrl ? (
-                <Image src={logoUrl} style={s.logoImage} />
-              ) : (
-                <View style={s.brandMark}>
-                  <Text style={s.brandText}>{getInitials(companyName)}</Text>
-                </View>
-              )}
-              <View style={s.brandColumn}>
-                <Text style={s.companyName}>{companyName}</Text>
-                <Text style={s.companyPhone}>+91 93931 41224</Text>
-              </View>
-            </View>
-            <View style={s.divider} />
-            <View style={s.metaRow}>
-              <View>
-                <Text style={s.metaLabel}>Client</Text>
-                <Text style={s.metaValue}>{ledger.client.name}</Text>
-              </View>
-              <View>
-                <Text style={s.metaLabel}>Project</Text>
-                <Text style={s.metaValue}>{ledger.project.name}</Text>
-              </View>
-              <View>
-                <Text style={s.metaLabel}>Budget</Text>
-                <Text style={s.metaValue}>{formatCurrency(Number(ledger.project.budget))}</Text>
-              </View>
-              <View>
-                <Text style={s.metaLabel}>Date</Text>
-                <Text style={s.metaValue}>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
-              </View>
-            </View>
-          </View>
+        <View style={s.pageFlow}>
+          {/* 1. HEADER BANNER */}
+          {headerBannerUrl ? (
+            <Image src={headerBannerUrl} style={s.headerBanner} />
+          ) : null}
 
-          {/* Summary */}
-          <View style={s.summaryRow}>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Credit Received</Text>
-              <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.credit))}</Text>
-            </View>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Amount Spent</Text>
-              <Text style={s.summaryValue}>{formatCurrency(Number(ledger.totals.debit))}</Text>
-            </View>
-            <View style={s.summaryItem}>
-              <Text style={s.summaryLabel}>Balance Remaining</Text>
-              <Text style={[s.summaryValue, s.creditColor]}>{formatCurrency(Number(ledger.totals.balance))}</Text>
-            </View>
-          </View>
-
-          {/* Table */}
-          <View style={s.tableHeader}>
-            <Text style={[s.th, s.colDate]}>Date</Text>
-            <Text style={[s.th, s.colContact]}>Contact</Text>
-            <Text style={[s.th, s.colCategory]}>Category</Text>
-            <Text style={[s.th, s.colPayment]}>Payment</Text>
-            <Text style={[s.th, s.colDesc]}>Description</Text>
-            <Text style={[s.th, s.colMoney]}>Credit</Text>
-            <Text style={[s.th, s.colMoney]}>Debit</Text>
-            <Text style={[s.th, s.colMoney]}>Balance</Text>
-          </View>
-
-          {ledger.transactions.map((t) => (
-            <View key={t.id} style={s.tableRow} wrap={false}>
-              <Text style={[s.td, s.colDate]}>{new Date(t.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</Text>
-              <Text style={[s.td, s.colContact]}>{t.contact.name}</Text>
-              <Text style={[s.td, s.colCategory]}>{t.category}</Text>
-              <Text style={[s.td, s.colPayment]}>{formatPaymentLabel(t)}</Text>
-              <Text style={[s.td, s.colDesc]}>{t.description || "—"}</Text>
-              <Text style={[s.td, s.colMoney, s.creditColor]}>{Number(t.credit) ? formatCurrency(Number(t.credit)) : "—"}</Text>
-              <Text style={[s.td, s.colMoney]}>{Number(t.debit) ? formatCurrency(Number(t.debit)) : "—"}</Text>
-              <Text style={[s.td, s.colMoney, { fontFamily: "NotoSans", fontWeight: "bold" }]}>{formatCurrency(Number(t.runningBalance))}</Text>
-            </View>
-          ))}
-
-          {ledger.transactions.length === 0 && (
-            <View style={{ paddingVertical: 20, alignItems: "center" }}>
-              <Text style={{ color: BRAND_MUTED }}>No transactions recorded.</Text>
-            </View>
-          )}
-
-          {/* Signature Area */}
-          <View style={s.footer}>
-            <View style={s.divider} />
-            <View style={s.signatureArea}>
-              <View style={s.signatureWrapper}>
-                {signatureUrl && <Image src={signatureUrl} style={s.signatureImage} />}
-                <View style={s.signatureBlock}>
-                  <Text style={s.signatureLabel}>Prepared By</Text>
+          {/* 2 - 8. MAIN CONTENT AREA */}
+          <View style={s.content}>
+            {/* ===== PROJECT HEADER (left/right split) ===== */}
+            <View style={s.projectHeaderRow}>
+              <View style={s.projectLeft}>
+                <Text style={s.projectLedgerLabel}>PROJECT LEDGER</Text>
+                <Text style={s.projectName}>{ledger.project.name}</Text>
+                <View style={s.clientLine}>
+                  <Text style={s.clientLabel}>{isContactView ? "Contact:" : "Client:"}</Text>
+                  <Text style={s.clientValue}>{ledger.client.name}</Text>
                 </View>
               </View>
-              <View style={[s.signatureWrapper, { justifyContent: "flex-end" }]}>
-                <View style={s.signatureBlock}>
-                  <Text style={s.signatureLabel}>Client Signature</Text>
+
+              <View style={s.projectRight}>
+                {/* Date */}
+                <View style={s.rightStackRow}>
+                  <View style={s.rightIconWrap}>
+                    <IconDate />
+                  </View>
+                  <View style={s.rightTextCol}>
+                    <Text style={s.rightFieldLabel}>DATE</Text>
+                    <Text style={s.rightFieldValue}>{exportDate}</Text>
+                  </View>
+                </View>
+                {/* Client or Contact */}
+                <View style={s.rightStackRow}>
+                  <View style={s.rightIconWrap}>
+                    <IconClient />
+                  </View>
+                  <View style={s.rightTextCol}>
+                    <Text style={s.rightFieldLabel}>{isContactView ? "CONTACT" : "CLIENT"}</Text>
+                    <Text style={s.rightFieldValue}>{ledger.client.name}</Text>
+                  </View>
+                </View>
+                {/* Project */}
+                <View style={s.rightStackRowLast}>
+                  <View style={s.rightIconWrap}>
+                    <IconProject />
+                  </View>
+                  <View style={s.rightTextCol}>
+                    <Text style={s.rightFieldLabel}>PROJECT</Text>
+                    <Text style={s.rightFieldValue}>
+                      {ledger.project.name}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
+
+            {/* Gold separator */}
+            <View style={s.goldDivider} />
+
+            {/* ===== FINANCIAL SUMMARY ===== */}
+            {isFullView ? (
+              <View style={s.summaryRow}>
+                {/* TOTAL CREDIT */}
+                <View style={s.summaryCard}>
+                  <View style={s.summaryIconLine}>
+                    <View style={[s.summaryIconBg, s.creditBg]}>
+                      <IconCredit />
+                    </View>
+                    <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
+                  </View>
+                  <Text style={[s.summaryAmount, s.creditText]}>
+                    {formatCurrency(Number(ledger.totals.credit))}
+                  </Text>
+                </View>
+
+                {/* TOTAL DEBIT */}
+                <View style={s.summaryCard}>
+                  <View style={s.summaryIconLine}>
+                    <View style={[s.summaryIconBg, s.debitBg]}>
+                      <IconDebit />
+                    </View>
+                    <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
+                  </View>
+                  <Text style={[s.summaryAmount, s.debitText]}>
+                    {formatCurrency(Number(ledger.totals.debit))}
+                  </Text>
+                </View>
+
+                {/* BALANCE REMAINING */}
+                <View style={s.summaryCard}>
+                  <View style={s.summaryIconLine}>
+                    <View style={[s.summaryIconBg, s.balanceBg]}>
+                      <IconBalance />
+                    </View>
+                    <Text style={s.summaryLabel}>BALANCE REMAINING</Text>
+                  </View>
+                  <Text style={[s.summaryAmount, s.balanceText]}>
+                    {formatCurrency(Number(ledger.totals.balance))}
+                  </Text>
+                </View>
+              </View>
+            ) : isClientView ? (
+              <View style={s.summaryRow}>
+                <View style={s.summarySingle}>
+                  <View style={s.summaryIconLine}>
+                    <View style={[s.summaryIconBg, s.creditBg]}>
+                      <IconCredit />
+                    </View>
+                    <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
+                  </View>
+                  <Text style={[s.summaryAmount, s.creditText]}>
+                    {formatCurrency(Number(ledger.totals.credit))}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={s.summaryRow}>
+                <View style={s.summarySingle}>
+                  <View style={s.summaryIconLine}>
+                    <View style={[s.summaryIconBg, s.debitBg]}>
+                      <IconDebit />
+                    </View>
+                    <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
+                  </View>
+                  <Text style={[s.summaryAmount, s.debitText]}>
+                    {formatCurrency(Number(ledger.totals.debit))}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* ===== TRANSACTION DETAILS TITLE ===== */}
+            <View style={s.txTitleRow}>
+              <View style={s.txTitleIconWrap}>
+                <IconTx />
+              </View>
+              <Text style={s.txTitleText}>TRANSACTION DETAILS</Text>
+            </View>
+
+            {/* ===== TRANSACTION TABLE ===== */}
+            <View style={s.tableOuter}>
+              <View style={s.tableHead}>
+                {isFullView ? (
+                  <>
+                    <Text style={[s.th, s.colDate]}>DATE</Text>
+                    <Text style={[s.th, s.colContact]}>CONTACT</Text>
+                    <Text style={[s.th, s.colCategory]}>CATEGORY</Text>
+                    <Text style={[s.th, s.colPayment]}>PAYMENT MODE</Text>
+                    <Text style={[s.th, s.colDesc]}>DESCRIPTION</Text>
+                    <Text style={[s.th, s.colMoney]}>CREDIT (₹)</Text>
+                    <Text style={[s.th, s.colMoney]}>DEBIT (₹)</Text>
+                    <Text style={[s.th, s.colMoney]}>BALANCE (₹)</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[s.th, s.colDate6]}>DATE</Text>
+                    <Text style={[s.th, s.colContact6]}>CONTACT</Text>
+                    <Text style={[s.th, s.colCategory6]}>CATEGORY</Text>
+                    <Text style={[s.th, s.colPayment6]}>PAYMENT MODE</Text>
+                    <Text style={[s.th, s.colDesc6]}>DESCRIPTION</Text>
+                    <Text style={[s.th, s.colMoney6]}>
+                      {isClientView ? "CREDIT (₹)" : "DEBIT (₹)"}
+                    </Text>
+                  </>
+                )}
+              </View>
+
+              <View style={s.tableBody}>
+                {ledger.transactions.length === 0 ? (
+                  <View style={s.emptyRow}>
+                    <Text style={s.emptyText}>No transactions recorded.</Text>
+                  </View>
+                ) : (
+                  ledger.transactions.map((t, i) => (
+                    <View
+                      key={t.id}
+                      style={
+                        i % 2 === 1 ? [s.tableRow, s.tableRowAlt] : s.tableRow
+                      }
+                      wrap={false}
+                    >
+                      {isFullView ? (
+                        <>
+                          <Text style={[s.td, s.colDate]}>
+                            {new Date(t.date).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </Text>
+                          <Text
+                            style={[s.td, s.colContact, { fontWeight: "bold" as any }]}
+                          >
+                            {t.contact.name}
+                          </Text>
+                          <View style={s.colCategory}>
+                            <View style={[s.badge, s.catBadge]}>
+                              <Text>{t.category}</Text>
+                            </View>
+                          </View>
+                          <View style={s.colPayment}>
+                            <View style={[s.badge, s.payBadge]}>
+                              <Text>{formatPaymentLabel(t)}</Text>
+                            </View>
+                          </View>
+                          <Text style={[s.td, s.colDesc]}>
+                            {t.description || "—"}
+                          </Text>
+                          <Text
+                            style={[
+                              s.td,
+                              s.colMoney,
+                              { fontWeight: "bold" as any, color: GREEN_DARK },
+                            ]}
+                          >
+                            {Number(t.credit)
+                              ? formatCurrency(Number(t.credit))
+                              : "—"}
+                          </Text>
+                          <Text
+                            style={[
+                              s.td,
+                              s.colMoney,
+                              { fontWeight: "bold" as any, color: RED },
+                            ]}
+                          >
+                            {Number(t.debit)
+                              ? formatCurrency(Number(t.debit))
+                              : "—"}
+                          </Text>
+                          <Text
+                            style={[
+                              s.td,
+                              s.colMoney,
+                              {
+                                fontWeight: "bold" as any,
+                                color: NAVY_DARK,
+                              },
+                            ]}
+                          >
+                            {formatCurrency(Number(t.runningBalance))}
+                          </Text>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={[s.td, s.colDate6]}>
+                            {new Date(t.date).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </Text>
+                          <Text
+                            style={[s.td, s.colContact6, { fontWeight: "bold" as any }]}
+                          >
+                            {t.contact.name}
+                          </Text>
+                          <View style={s.colCategory6}>
+                            <View style={[s.badge, s.catBadge]}>
+                              <Text>{t.category}</Text>
+                            </View>
+                          </View>
+                          <View style={s.colPayment6}>
+                            <View style={[s.badge, s.payBadge]}>
+                              <Text>{formatPaymentLabel(t)}</Text>
+                            </View>
+                          </View>
+                          <Text style={[s.td, s.colDesc6]}>
+                            {t.description || "—"}
+                          </Text>
+                          {isClientView ? (
+                            <Text
+                              style={[
+                                s.td,
+                                s.colMoney6,
+                                { fontWeight: "bold" as any, color: GREEN_DARK },
+                              ]}
+                            >
+                              {Number(t.credit)
+                                ? formatCurrency(Number(t.credit))
+                                : "—"}
+                            </Text>
+                          ) : (
+                            <Text
+                              style={[
+                                s.td,
+                                s.colMoney6,
+                                { fontWeight: "bold" as any, color: RED },
+                              ]}
+                            >
+                              {Number(t.debit)
+                                ? formatCurrency(Number(t.debit))
+                                : "—"}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    </View>
+                  ))
+                )}
+              </View>
+            </View>
+
+            {/* Flexible spacer to absorb vertical space, push sig+footer down */}
+            <View style={s.spacer} />
+
+            {/* ===== PREPARED BY / {CLIENT OR CONTACT} SIGNATURE ===== */}
+            <View style={s.sigArea} wrap={false}>
+              {/* LEFT: Prepared By (always INCHX INTERIO / company identity) */}
+              <View style={[s.sigCol]}>
+                <Text style={s.sigHeaderTextClean}>Prepared By</Text>
+
+                <View style={{ height: 12 }} />
+
+                {signatureUrl && (
+                  <Image src={signatureUrl} style={s.sigImage} />
+                )}
+
+                <Text style={s.sigNameText}>{companyName}</Text>
+              </View>
+
+              {/* RIGHT: Client Signature — OR — Contact Signature (conditional) */}
+              <View style={[s.sigCol, s.sigRightAlign]}>
+                <Text style={[s.sigHeaderTextClean, { textAlign: "right" }]}>
+                  {isContactView ? "Contact Signature" : "Client Signature"}
+                </Text>
+
+                <View style={{ height: signatureUrl ? 38 + 22 : 50 }} />
+
+                <View style={[s.sigRuleOnly, s.sigRightAlignRule]} />
+                <Text style={[s.sigNameText, { textAlign: "right", marginTop: 6 }]}>{ledger.client.name}</Text>
+              </View>
+            </View>
           </View>
+
+          {/* 9. FOOTER BANNER — final page bottom */}
+          {footerBannerUrl ? (
+            <View wrap={false}>
+              <Image src={footerBannerUrl} style={s.footerBanner} />
+            </View>
+          ) : null}
         </View>
-
-        {/* Branded Footer */}
-        <View style={s.brandFooter}>
-          {/* Top tagline row */}
-          <View style={s.footerTaglineTop}>
-            <View style={s.footerGoldLine} />
-            <Text style={s.footerTaglineText}>SPACES THAT INSPIRE</Text>
-            <View style={s.footerGoldLine} />
-          </View>
-
-          {/* Location row with buildings */}
-          <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 0 }}>
-            <View style={{ width: 70, position: "absolute", left: -10, bottom: 0, zIndex: 0 }}>
-              <BuildingSilhouettes side="left" />
-            </View>
-
-            <View style={{ flex: 1, flexDirection: "column", alignItems: "center", zIndex: 1 }}>
-              <View style={s.footerLocationRow}>
-                <LocationPinIcon />
-                <Text style={s.footerLocationText}>Hyderabad</Text>
-                <Text style={s.footerLocationSep}>|</Text>
-                <Text style={s.footerLocationText}>Andhra Pradesh</Text>
-                <Text style={s.footerLocationSep}>|</Text>
-                <Text style={s.footerLocationText}>Karnataka</Text>
-                <Text style={s.footerLocationSep}>|</Text>
-                <Text style={s.footerLocationText}>Odisha</Text>
-              </View>
-
-              {/* Social icons row */}
-              <View style={s.footerSocialRow}>
-                <InstagramBadge />
-                <FacebookBadge />
-                <YouTubeBadge />
-                <XBadge />
-                <PinterestBadge />
-                <LinkedInBadge />
-              </View>
-
-              {/* Bottom tagline */}
-              <View style={s.footerTaglineBottom}>
-                <Text style={s.footerTaglineBottomText}>LET'S BUILD BEAUTIFUL SPACES TOGETHER</Text>
-              </View>
-            </View>
-
-            <View style={{ width: 70, position: "absolute", right: -10, bottom: 0, zIndex: 0 }}>
-              <BuildingSilhouettes side="right" />
-            </View>
-          </View>
-
-          {/* Wave curves at bottom */}
-          <View style={{ marginHorizontal: -40, marginBottom: -40, marginTop: 0 }}>
-            <WaveCurves />
-          </View>
-        </View>
-
-        <Text style={s.pageNumber} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} fixed />
       </Page>
     </Document>
   );

@@ -204,7 +204,7 @@ export async function getProjectLedger(projectId: string, contactId?: string | n
         name: row.contactName!,
         category: row.contactCategory!,
       },
-      category: row.category!, description: row.description, paymentMode: row.paymentMode! as "CASH" | "UPI" | "CARD" | "OTHER",
+      category: row.category!, description: row.description, paymentMode: row.paymentMode! as "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER",
       paymentProofUrl: row.paymentProofUrl, credit: asMoney(row.credit),
       debit: asMoney(row.debit), runningBalance: row.runningBalance !== null ? asMoney(row.runningBalance) : "",
       createdBy: row.createdById && row.createdByName && row.createdByRole ? {

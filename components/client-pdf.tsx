@@ -140,10 +140,13 @@ function formatPaymentLabel(payment: ClientLedgerPayment) {
     CASH: "Cash",
     UPI: "UPI",
     CARD: "Card",
+    NEFT: "NEFT",
+    IMPS: "IMPS",
     OTHER: "Other",
   };
 
-  return payment.paymentMode === "UPI" && payment.paymentProofUrl
+  const proofModes: ReadonlyArray<ClientLedgerPayment["paymentMode"]> = ["UPI", "NEFT", "IMPS"];
+  return proofModes.includes(payment.paymentMode) && payment.paymentProofUrl
     ? `${labelMap[payment.paymentMode]} (proof)`
     : labelMap[payment.paymentMode];
 }

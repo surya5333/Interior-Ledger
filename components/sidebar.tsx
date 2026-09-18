@@ -25,7 +25,7 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/projects" || p.startsWith("/projects/") },
   { href: "/schedule", label: "Schedule", icon: CalendarDays, match: (p: string) => p.startsWith("/schedule"), adminOrManager: true },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
-  { href: "/contacts", label: "Contacts", icon: Users, match: (p: string) => p.startsWith("/contacts") },
+  { href: "/contacts", label: "Contractors", icon: Users, match: (p: string) => p.startsWith("/contacts") },
   { href: "/financial-overview", label: "Financial Overview", icon: BarChart3, match: (p: string) => p.startsWith("/financial-overview"), adminOnly: true },
   { href: "/staff", label: "Staff", icon: Contact, match: (p: string) => p.startsWith("/staff"), adminOrManager: true },
   { href: "/salary", label: "Salary Dashboard", icon: Banknote, match: (p: string) => p.startsWith("/salary"), adminOnly: true },

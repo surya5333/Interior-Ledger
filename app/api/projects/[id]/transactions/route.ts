@@ -8,8 +8,9 @@ import { CLIENT_PAYMENT_CATEGORY, createTransactionSchema } from "../../../../..
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function normalizePaymentProofUrl(paymentMode: "CASH" | "UPI" | "CARD" | "OTHER", paymentProofUrl?: string) {
-  return paymentMode === "UPI" && paymentProofUrl ? paymentProofUrl : null;
+function normalizePaymentProofUrl(paymentMode: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER", paymentProofUrl?: string) {
+  const proofModes: ReadonlyArray<string> = ["UPI", "NEFT", "IMPS"];
+  return proofModes.includes(paymentMode) && paymentProofUrl ? paymentProofUrl : null;
 }
 
 import { verifySession, loadProjectLockState, projectLocked } from "../../../../../lib/auth";
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             description: input.description,
             credit: input.credit,
             debit: "0",
-            paymentMode: input.paymentMode,
+            paymentMode: input.paymentMode as any,
             paymentProofUrl: normalizePaymentProofUrl(input.paymentMode, input.paymentProofUrl),
           },
           select: { id: true },
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           description: input.description,
           credit: input.credit,
           debit: input.debit,
-          paymentMode: input.paymentMode,
+          paymentMode: input.paymentMode as any,
           paymentProofUrl: normalizePaymentProofUrl(input.paymentMode, input.paymentProofUrl),
         },
         select: { id: true },

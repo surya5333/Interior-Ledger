@@ -15,7 +15,7 @@ export interface ClientLedgerPayment {
   project: { id: string; name: string };
   category: string;
   description: string | null;
-  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentMode: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
   paymentProofUrl: string | null;
   credit: string;
 }

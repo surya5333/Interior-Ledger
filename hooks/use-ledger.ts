@@ -7,7 +7,7 @@ export interface LedgerTransaction {
   contact: { id: string; name: string; category: string };
   category: string;
   description: string | null;
-  paymentMode: "CASH" | "UPI" | "CARD" | "OTHER";
+  paymentMode: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
   paymentProofUrl: string | null;
   credit: string;
   debit: string;
@@ -67,7 +67,7 @@ export function useCreateTransaction(projectId: string) {
       description?: string;
       credit: number | string;
       debit: number | string;
-      paymentMode?: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentMode?: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
       paymentProofUrl?: string;
       isClientPayment?: boolean;
     }) =>
@@ -98,7 +98,7 @@ export function useUpdateTransaction(projectId: string) {
       credit?: number;
       debit?: number;
       date?: string;
-      paymentMode?: "CASH" | "UPI" | "CARD" | "OTHER";
+      paymentMode?: "CASH" | "UPI" | "CARD" | "NEFT" | "IMPS" | "OTHER";
       paymentProofUrl?: string;
       isClientPayment?: boolean;
     }) =>

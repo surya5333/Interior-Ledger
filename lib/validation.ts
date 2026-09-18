@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const paymentModeValues = ["CASH", "UPI", "CARD", "OTHER"] as const;
+export const paymentModeValues = ["CASH", "UPI", "CARD", "NEFT", "IMPS", "OTHER"] as const;
+export const PAYMENT_MODES_WITH_PROOF = ["UPI", "NEFT", "IMPS"] as const;
 export const CLIENT_PAYMENT_CATEGORY = "Payment";
 
 const money = z
@@ -76,10 +77,10 @@ export const createTransactionSchema = z
       }
     }
 
-    if (value.paymentMode !== "UPI" && value.paymentProofUrl) {
+    if (!PAYMENT_MODES_WITH_PROOF.includes(value.paymentMode as any) && value.paymentProofUrl) {
       context.addIssue({
         code: "custom",
-        message: "Payment proof is only supported for UPI transactions.",
+        message: "Payment proof is only supported for UPI, NEFT, and IMPS transactions.",
         path: ["paymentProofUrl"],
       });
     }

@@ -2,7 +2,7 @@
 
 import { use, useCallback } from "react";
 import Link from "next/link";
-import { FolderKanban, Download } from "lucide-react";
+import { FolderKanban, Download, Share2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useClient } from "../../../hooks/use-clients";
@@ -26,6 +26,13 @@ import {
   DataTableEmpty,
 } from "../../../components/ui/data-table";
 
+function sanitizeFileName(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "document";
+}
+
 export default function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, isLoading } = useClient(id);
@@ -34,20 +41,90 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const exportPDF = useCallback(async () => {
     if (!data) return;
     try {
-      const [{ pdf }, { ClientPDF }] = await Promise.all([
+      const [{ pdf }, { LedgerPDF }] = await Promise.all([
         import("@react-pdf/renderer"),
-        import("../../../components/client-pdf"),
+        import("../../../components/ledger-pdf"),
       ]);
       const companyName = settings?.companyName || "Ledger";
       const logoUrl = settings?.logoUrl;
       const signatureUrl = settings?.signatureUrl;
+      const phoneNumber = (settings as any)?.phone || "+91 93931 41224";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const headerBannerUrl = `${origin}/pdf-assets/pdf-header-banner.png`;
+      const footerBannerUrl = `${origin}/pdf-assets/pdf-footer-banner.png`;
 
-      const rawBlob = await pdf(<ClientPDF data={data} companyName={companyName} logoUrl={logoUrl} signatureUrl={signatureUrl} />).toBlob();
+      // Cross-project aggregated view:
+      // - project.name becomes a synthetic aggregate header
+      // - client identity stays the viewed client
+      // - payments are flattened into a single credit-only table via projection
+      // - totals are rebuilt from the active, non-deleted subset (security, requirement 16)
+      const { client, payments } = data;
+      const activePayments = payments.filter((p) => !(p as any).deleted);
+      const creditOnly = activePayments.filter((p) => Number(p.credit || 0) > 0);
+      const totalCredit = creditOnly.reduce(
+        (sum, p) => sum + Number(p.credit || 0),
+        0
+      );
+
+      const syntheticProject = {
+        id: `client-${client.id}`,
+        name: `All Projects · ${client.name}`,
+        budget: "0",
+        isLocked: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const pdfLedger = {
+        project: syntheticProject,
+        client: {
+          id: client.id,
+          name: client.name,
+          phone: client.phone,
+          email: client.email,
+        },
+        contacts: [],
+        totals: {
+          credit: totalCredit.toFixed(2),
+          debit: "0.00",
+          balance: "0.00",
+        },
+        transactions: creditOnly.map((p, idx) => ({
+          id: p.id,
+          date: p.date,
+          contact: {
+            id: client.id,
+            name: p.project?.name ? `${client.name} · ${p.project.name}` : client.name,
+            category: "Client",
+            phone: client.phone,
+          },
+          category: p.category,
+          description: p.description || "",
+          paymentMode: p.paymentMode,
+          paymentProofUrl: p.paymentProofUrl,
+          credit: p.credit,
+          debit: "0.00",
+          runningBalance: "",
+        })),
+      };
+
+      const rawBlob = await pdf(
+        <LedgerPDF
+          ledger={pdfLedger}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          signatureUrl={signatureUrl}
+          phone={phoneNumber}
+          headerBannerUrl={headerBannerUrl}
+          footerBannerUrl={footerBannerUrl}
+          viewMode="client"
+        />
+      ).toBlob();
       const blob = new Blob([rawBlob], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${data.client.name.replace(/\s+/g, "_")}_Summary.pdf`;
+      a.download = `client-ledger-${sanitizeFileName(client.name)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {

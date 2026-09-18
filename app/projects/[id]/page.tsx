@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown } from "lucide-react";
+import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown, Share2, UserRound } from "lucide-react";
 
 import { useLedger, useCreateTransaction, useUpdateTransaction, useDeleteTransaction, LedgerTransaction } from "../../../hooks/use-ledger";
 import { useContacts } from "../../../hooks/use-contacts";
@@ -47,6 +47,8 @@ const paymentModeOptions = [
   { value: "CASH", label: "Cash" },
   { value: "UPI", label: "UPI" },
   { value: "CARD", label: "Card" },
+  { value: "NEFT", label: "NEFT" },
+  { value: "IMPS", label: "IMPS" },
   { value: "OTHER", label: "Other" },
 ] as const;
 
@@ -61,7 +63,7 @@ const transactionSchema = z
     description: z.string().optional(),
     type: z.enum(["debit", "credit"]),
     amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-    paymentMode: z.enum(["CASH", "UPI", "CARD", "OTHER"]).default("CASH"),
+    paymentMode: z.enum(["CASH", "UPI", "CARD", "NEFT", "IMPS", "OTHER"]).default("CASH"),
     paymentProofUrl: z.string().url().optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
@@ -389,18 +391,33 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
       const companyName = settings?.companyName || "Ledger";
       const logoUrl = settings?.logoUrl;
       const signatureUrl = settings?.signatureUrl;
+      const phoneNumber = (settings as any)?.phone || "+91 93931 41224";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const headerBannerUrl = `${origin}/pdf-assets/pdf-header-banner.png`;
+      const footerBannerUrl = `${origin}/pdf-assets/pdf-footer-banner.png`;
 
       const pdfLedger = {
         ...ledger,
         transactions: ledger.transactions.filter((t) => !t.deleted),
       };
 
-      const rawBlob = await pdf(<LedgerPDF ledger={pdfLedger} companyName={companyName} logoUrl={logoUrl} signatureUrl={signatureUrl} />).toBlob();
+      const rawBlob = await pdf(
+        <LedgerPDF
+          ledger={pdfLedger}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          signatureUrl={signatureUrl}
+          phone={phoneNumber}
+          headerBannerUrl={headerBannerUrl}
+          footerBannerUrl={footerBannerUrl}
+        />
+      ).toBlob();
       const blob = new Blob([rawBlob], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${ledger.project.name.replace(/\s+/g, "_")}_Ledger.pdf`;
+      a.download = `project-ledger-${sanitizeFileName(ledger.project.name)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
@@ -408,6 +425,183 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
       toast.error(`Failed to generate PDF: ${err.message || err}`);
     }
   }, [ledger, settings]);
+
+  const shareClientPDF = useCallback(async () => {
+    if (!ledger) return;
+    try {
+      const [{ pdf }, { LedgerPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../../../components/ledger-pdf"),
+      ]);
+      const companyName = settings?.companyName || "Ledger";
+      const logoUrl = settings?.logoUrl;
+      const signatureUrl = settings?.signatureUrl;
+      const phoneNumber = (settings as any)?.phone || "+91 93931 41224";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const headerBannerUrl = `${origin}/pdf-assets/pdf-header-banner.png`;
+      const footerBannerUrl = `${origin}/pdf-assets/pdf-footer-banner.png`;
+
+      // —— SECURITY PROJECTION (requirement 16) ——
+      // Active, non-deleted, client credit records ONLY (isClientPayment + credit>0).
+      // Totals are recalculated from the filtered set.
+      // No balance, debit, or other-client values are sent to the PDF component.
+      const activeTxs = ledger.transactions.filter((t) => !t.deleted);
+      const clientTxs = activeTxs.filter((t) => {
+        const isCredit = Number(t.credit || 0) > 0;
+        const belongsToClient =
+          t.isClientPayment || t.contact?.id === ledger.client.id;
+        return isCredit && belongsToClient;
+      });
+      const totalCredit = clientTxs.reduce(
+        (sum, t) => sum + Number(t.credit || 0),
+        0
+      );
+
+      const pdfLedger = {
+        project: { ...ledger.project },
+        client: { ...ledger.client },
+        // Totals projection — only credit. No debit/balance data.
+        totals: {
+          credit: totalCredit.toFixed(2),
+          debit: "0.00",
+          balance: "0.00",
+        },
+        contacts: ledger.contacts,
+        transactions: clientTxs.map((t) => ({
+          id: t.id,
+          date: t.date,
+          contact: { ...t.contact },
+          category: t.category,
+          description: t.description,
+          paymentMode: t.paymentMode,
+          paymentProofUrl: t.paymentProofUrl,
+          // Projection: only credit is needed. Zero out debit/runningBalance.
+          credit: t.credit,
+          debit: "0.00",
+          runningBalance: "",
+        })),
+      };
+
+      const rawBlob = await pdf(
+        <LedgerPDF
+          ledger={pdfLedger}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          signatureUrl={signatureUrl}
+          phone={phoneNumber}
+          headerBannerUrl={headerBannerUrl}
+          footerBannerUrl={footerBannerUrl}
+          viewMode="client"
+        />
+      ).toBlob();
+      const blob = new Blob([rawBlob], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `client-ledger-${sanitizeFileName(ledger.project.name)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Client PDF generation failed", err);
+      toast.error(`Failed to generate Client PDF: ${err.message || err}`);
+    }
+  }, [ledger, settings]);
+
+  const shareContactPDF = useCallback(async () => {
+    if (!ledger) return;
+    if (!contactFilter) {
+      toast.info("Select a contact to share their ledger.");
+      return;
+    }
+    try {
+      const [{ pdf }, { LedgerPDF }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("../../../components/ledger-pdf"),
+      ]);
+      const companyName = settings?.companyName || "Ledger";
+      const logoUrl = settings?.logoUrl;
+      const signatureUrl = settings?.signatureUrl;
+      const phoneNumber = (settings as any)?.phone || "+91 93931 41224";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const headerBannerUrl = `${origin}/pdf-assets/pdf-header-banner.png`;
+      const footerBannerUrl = `${origin}/pdf-assets/pdf-footer-banner.png`;
+
+      // —— SECURITY PROJECTION (requirement 16) ——
+      // Active, non-deleted, selected contact ID, debit records ONLY.
+      // The contact ID matching ensures same-name/different-category contacts remain separated.
+      // Totals are recalculated from the filtered set. No credit/balance data leaked.
+      const selectedContact = ledger.contacts.find((c) => c.id === contactFilter);
+      const contactDisplayName = selectedContact?.name || "Contact";
+
+      const activeTxs = ledger.transactions.filter((t) => !t.deleted);
+      const contactTxs = activeTxs.filter((t) => {
+        const isDebit = Number(t.debit || 0) > 0;
+        const matchesContact = t.contact?.id === contactFilter;
+        return isDebit && matchesContact;
+      });
+      const totalDebit = contactTxs.reduce(
+        (sum, t) => sum + Number(t.debit || 0),
+        0
+      );
+
+      const pdfLedger = {
+        project: { ...ledger.project },
+        // For Contact PDF, project header right-side + left label show the contact
+        // identity via client.name. Use selected contact identity.
+        client: {
+          id: selectedContact?.id ?? ledger.client.id,
+          name: selectedContact
+            ? `${selectedContact.name} • ${selectedContact.category}`
+            : ledger.client.name,
+        },
+        // Totals projection — only debit. No credit/balance data.
+        totals: {
+          credit: "0.00",
+          debit: totalDebit.toFixed(2),
+          balance: "0.00",
+        },
+        contacts: ledger.contacts,
+        transactions: contactTxs.map((t) => ({
+          id: t.id,
+          date: t.date,
+          contact: { ...t.contact },
+          category: t.category,
+          description: t.description,
+          paymentMode: t.paymentMode,
+          paymentProofUrl: t.paymentProofUrl,
+          // Projection: only debit is needed. Zero out credit/runningBalance.
+          credit: "0.00",
+          debit: t.debit,
+          runningBalance: "",
+        })),
+      };
+
+      const rawBlob = await pdf(
+        <LedgerPDF
+          ledger={pdfLedger}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          signatureUrl={signatureUrl}
+          phone={phoneNumber}
+          headerBannerUrl={headerBannerUrl}
+          footerBannerUrl={footerBannerUrl}
+          viewMode="contact"
+        />
+      ).toBlob();
+      const blob = new Blob([rawBlob], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `contact-ledger-${sanitizeFileName(contactDisplayName)}-${sanitizeFileName(ledger.project.name)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Contact PDF generation failed", err);
+      toast.error(`Failed to generate Contact PDF: ${err.message || err}`);
+    }
+  }, [ledger, settings, contactFilter]);
 
   if (isLoading) return <PageSkeleton />;
   if (!ledger) return <div className="text-muted">Project not found</div>;
@@ -419,10 +613,25 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
         title={ledger.project.name}
         subtitle={`${ledger.client.name} · Budget ₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(ledger.project.budget))}`}
       >
-        <Button variant="secondary" onClick={exportPDF}>
-          <Download className="size-4 mr-2" />
-          Export PDF
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={exportPDF}>
+            <Download className="size-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button variant="secondary" onClick={shareClientPDF}>
+            <Share2 className="size-4 mr-2" />
+            Share to Client
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={shareContactPDF}
+            disabled={!contactFilter}
+            title={contactFilter ? undefined : "Select a contact to share their ledger."}
+          >
+            <UserRound className="size-4 mr-2" />
+            Share to Contact
+          </Button>
+        </div>
         {isOwner && (
           isLocked ? (
             <Button variant="secondary" onClick={handleLockToggle} loading={lockMutation.isPending}>

@@ -2,7 +2,7 @@
 
 import { use, useCallback } from "react";
 import Link from "next/link";
-import { ReceiptText, Download } from "lucide-react";
+import { ReceiptText, Download, Share2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useContact } from "../../../hooks/use-contacts";
@@ -24,28 +24,116 @@ import {
   DataTableCell,
 } from "../../../components/ui/data-table";
 
+function sanitizeFileName(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "document";
+}
+
 export default function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, isLoading } = useContact(id);
   const { data: settings } = useSettings();
 
   const exportPDF = useCallback(async () => {
-    if (!data) return;
+    if (!data || !data.contact) return;
     try {
-      const [{ pdf }, { ContactPDF }] = await Promise.all([
+      const [{ pdf }, { LedgerPDF }] = await Promise.all([
         import("@react-pdf/renderer"),
-        import("../../../components/contact-pdf"),
+        import("../../../components/ledger-pdf"),
       ]);
       const companyName = settings?.companyName || "Ledger";
       const logoUrl = settings?.logoUrl;
       const signatureUrl = settings?.signatureUrl;
+      const phoneNumber = (settings as any)?.phone || "+91 93931 41224";
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      const headerBannerUrl = `${origin}/pdf-assets/pdf-header-banner.png`;
+      const footerBannerUrl = `${origin}/pdf-assets/pdf-footer-banner.png`;
 
-      const rawBlob = await pdf(<ContactPDF data={data} companyName={companyName} logoUrl={logoUrl} signatureUrl={signatureUrl} />).toBlob();
+      // Cross-project contact ledger view:
+      // - Flatten all groups of per-project transactions
+      // - Project to ACTIVE + DEBIT-only (not credit, security requirement 16)
+      // - Rebuild totals from filtered set
+      const { contact, projects } = data;
+      const contactIdentity = `${contact.name} • ${contact.category}`;
+
+      const flatTxs = projects.flatMap((group) =>
+        (group.transactions || []).map((t) => ({
+          ...t,
+          projectName: group.project?.name || "",
+          projectClientName: group.project?.client?.name || "",
+        }))
+      );
+      const activeTxs = flatTxs.filter((t) => !(t as any).deleted);
+      const debitOnly = activeTxs.filter((t) => Number(t.debit || 0) > 0);
+      const totalDebit = debitOnly.reduce(
+        (sum, t) => sum + Number(t.debit || 0),
+        0
+      );
+
+      const syntheticProject = {
+        id: `contact-${contact.id}`,
+        name: `All Projects · ${contactIdentity}`,
+        budget: "0",
+        isLocked: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const pdfLedger = {
+        project: syntheticProject,
+        // For contact-ledger, the PDF's "client" slot shows the viewed contact
+        // identity (viewMode=contact flips labels to "Contact:" / "Contact Signature")
+        client: {
+          id: contact.id,
+          name: contactIdentity,
+          phone: contact.phone,
+        },
+        contacts: [],
+        totals: {
+          credit: "0.00",
+          debit: totalDebit.toFixed(2),
+          balance: "0.00",
+        },
+        transactions: debitOnly.map((t) => ({
+          id: t.id,
+          date: t.date,
+          contact: {
+            id: contact.id,
+            name: contact.name,
+            category: contact.category,
+            phone: contact.phone,
+          },
+          category: t.category,
+          description: t.projectName
+            ? `${t.projectName}${t.description ? ` — ${t.description}` : ""}`
+            : t.description || "",
+          paymentMode: (t as any).paymentMode || "OTHER",
+          paymentProofUrl: (t as any).paymentProofUrl,
+          credit: "0.00",
+          debit: t.debit,
+          runningBalance: "",
+        })),
+      };
+
+      const rawBlob = await pdf(
+        <LedgerPDF
+          ledger={pdfLedger}
+          companyName={companyName}
+          logoUrl={logoUrl}
+          signatureUrl={signatureUrl}
+          phone={phoneNumber}
+          headerBannerUrl={headerBannerUrl}
+          footerBannerUrl={footerBannerUrl}
+          viewMode="contact"
+        />
+      ).toBlob();
       const blob = new Blob([rawBlob], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${data.contact.name.replace(/\s+/g, "_")}_Ledger.pdf`;
+      a.download = `contact-ledger-${sanitizeFileName(contact.name)}-${sanitizeFileName(contact.category)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
