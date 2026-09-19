@@ -114,8 +114,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     const isClientPayment = body.isClientPayment ?? existingTransaction.isClientPayment;
     const paymentMode = body.paymentMode ?? existingTransaction.paymentMode;
+    const proofModes: ReadonlyArray<string> = ["UPI", "NEFT", "IMPS"];
     const paymentProofUrl =
-      paymentMode === "UPI"
+      proofModes.includes(paymentMode)
         ? body.paymentProofUrl !== undefined
           ? body.paymentProofUrl
           : existingTransaction.paymentProofUrl ?? undefined
