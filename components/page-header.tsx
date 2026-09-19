@@ -17,8 +17,8 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
-      <div className="space-y-2 min-w-0">
+    <header className={cn("flex flex-col gap-4 items-start justify-between xl:flex-row xl:items-end", className)}>
+      <div className="space-y-2 min-w-0 w-full xl:w-auto">
         {breadcrumbItems && breadcrumbItems.length > 0 && (
           <Breadcrumb items={breadcrumbItems} />
         )}
@@ -30,7 +30,7 @@ export function PageHeader({
         )}
       </div>
       {children && (
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full xl:w-auto xl:justify-end">
           {children}
         </div>
       )}

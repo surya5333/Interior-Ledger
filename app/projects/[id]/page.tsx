@@ -613,25 +613,23 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
         title={ledger.project.name}
         subtitle={`${ledger.client.name} · Budget ₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(ledger.project.budget))}`}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={exportPDF}>
-            <Download className="size-4 mr-2" />
-            Export PDF
-          </Button>
-          <Button variant="secondary" onClick={shareClientPDF}>
-            <Share2 className="size-4 mr-2" />
-            Share to Client
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={shareContactPDF}
-            disabled={!contactFilter}
-            title={contactFilter ? undefined : "Select a contact to share their ledger."}
-          >
-            <UserRound className="size-4 mr-2" />
-            Share to Contact
-          </Button>
-        </div>
+        <Button variant="secondary" onClick={exportPDF}>
+          <Download className="size-4 mr-2" />
+          Export PDF
+        </Button>
+        <Button variant="secondary" onClick={shareClientPDF}>
+          <Share2 className="size-4 mr-2" />
+          Share to Client
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={shareContactPDF}
+          disabled={!contactFilter}
+          title={contactFilter ? undefined : "Select a contact to share their ledger."}
+        >
+          <UserRound className="size-4 mr-2" />
+          Share to Contact
+        </Button>
         {isOwner && (
           isLocked ? (
             <Button variant="secondary" onClick={handleLockToggle} loading={lockMutation.isPending}>
@@ -649,7 +647,6 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
           <Button
             onClick={() => {
               setIsQuickEntryOpen(true);
-              // Avoid layout thrashing: run DOM side effect after state commit
               setTimeout(() => {
                 quickEntryRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
               }, 0);
