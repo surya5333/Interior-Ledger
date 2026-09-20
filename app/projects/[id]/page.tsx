@@ -852,7 +852,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                 aria-label={isQuickEntryOpen ? "Collapse Quick Entry" : "Expand Quick Entry"}
                 className="shrink-0 size-8 inline-flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-muted/40 transition-colors"
               >
-                {isQuickEntryOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                {isQuickEntryOpen ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
               </button>
             </div>
           ) : (
@@ -870,7 +870,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   aria-label={isQuickEntryOpen ? "Collapse Quick Entry" : "Expand Quick Entry"}
                   className="shrink-0 size-8 inline-flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-muted/40 transition-colors"
                 >
-                  {isQuickEntryOpen ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  {isQuickEntryOpen ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
                 </button>
               </div>
               {isQuickEntryOpen ? (

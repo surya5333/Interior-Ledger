@@ -233,7 +233,7 @@ export async function getFinancialOverview(userRole?: string) {
     })
     .sort((a, b) => Number(b.total) - Number(a.total));
 
-  const paymentModeOrder = ["CASH", "UPI", "CARD", "OTHER"] as const;
+  const paymentModeOrder = ["CASH", "UPI", "CARD", "NEFT", "IMPS", "OTHER"] as const;
   const paymentModeTotals = paymentModeOrder.map((mode) => {
     const row = paymentModeGroups.find((g) => g.paymentMode === mode);
     const credit = Number(row?._sum.credit ?? 0);

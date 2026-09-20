@@ -43,41 +43,71 @@ const PAGE_BG = "#ffffff";
 const DEFAULT_PHONE = "+91 93931 41224";
 
 // ============================================================
+// EXACT BANNER RENDERED HEIGHTS (Measured from actual PNG)
+//
+// A4 width (react-pdf pt at 72dpi) = 595.28 pt
+//
+// Header PNG: 2172 x 446 px  -> 595.28 * 446 / 2172 = 122.31 pt ≈ 122 pt
+// Footer PNG: 2172 x 391 px  -> 595.28 * 391 / 2172 = 107.24 pt ≈ 107 pt
+//
+// Reserved space = rendered banner height + small visual gap so
+// "PROJECT LEDGER" does not hug the header's bottom edge.
+// ============================================================
+const HEADER_BANNER_RENDERED_HEIGHT_PT = 122;
+const FOOTER_BANNER_RENDERED_HEIGHT_PT = 107;
+const HEADER_VISUAL_GAP_PT = 12;
+const FOOTER_VISUAL_GAP_PT = 6;
+const HEADER_RESERVED_PT = HEADER_BANNER_RENDERED_HEIGHT_PT + HEADER_VISUAL_GAP_PT;
+const FOOTER_RESERVED_PT = FOOTER_BANNER_RENDERED_HEIGHT_PT + FOOTER_VISUAL_GAP_PT;
+
+// ============================================================
 // STYLESHEET
 // ============================================================
 const s = StyleSheet.create({
   page: {
-    padding: 0,
+    // Reserve EXACT space at top/bottom so dynamic content never
+    // overlaps the absolutely-positioned fixed header/footer.
+    paddingTop: HEADER_RESERVED_PT,
+    paddingBottom: FOOTER_RESERVED_PT,
+    paddingHorizontal: 40,
     fontSize: 9,
     fontFamily: "NotoSans",
     color: DARK,
     flexDirection: "column",
     backgroundColor: PAGE_BG,
   },
-  pageFlow: {
-    flexGrow: 1,
-    flexDirection: "column",
-    minHeight: "100%",
+  headerFixed: {
+    position: "absolute" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    width: "100%",
+    height: HEADER_BANNER_RENDERED_HEIGHT_PT,
+  },
+  footerFixed: {
+    position: "absolute" as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: "100%",
+    height: FOOTER_BANNER_RENDERED_HEIGHT_PT,
   },
   headerBanner: {
     width: "100%",
+    height: HEADER_BANNER_RENDERED_HEIGHT_PT,
     objectFit: "contain",
   },
   footerBanner: {
     width: "100%",
+    height: FOOTER_BANNER_RENDERED_HEIGHT_PT,
     objectFit: "contain",
   },
   content: {
-    paddingHorizontal: 40,
-    paddingTop: 12,
-    paddingBottom: 10,
-    flexGrow: 1,
-    flexShrink: 1,
+    // Content lives inside the page's already-reserved safe area.
+    // No internal paddingTop/Bottom here — page padding already protects
+    // us from the absolute header/footer.
     flexDirection: "column",
-  },
-  spacer: {
     flexGrow: 1,
-    minHeight: 8,
   },
 
   // ---------- GOLD SECTION DIVIDER ----------
@@ -100,6 +130,11 @@ const s = StyleSheet.create({
     width: "62%",
     paddingRight: 20,
     paddingTop: 1,
+    // Small left padding reserves enough space for large bold capitals
+    // (e.g. "S" in "Skypark 1104" at 22pt bold NotoSans) to slightly
+    // overshoot the glyph origin without being clipped at the text
+    // container left edge.  Works generically for ALL project names.
+    paddingLeft: 4,
   },
   projectLedgerLabel: {
     fontSize: 11,
@@ -117,6 +152,9 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
     lineHeight: 1.15,
     marginBottom: 6,
+    // Extra safety: Text-level left padding so the glyph box does
+    // not sit exactly at the viewport/clipping edge.
+    paddingLeft: 2,
   },
   clientLine: {
     flexDirection: "row",
@@ -368,94 +406,12 @@ const s = StyleSheet.create({
   sigArea: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 24,
+    marginTop: 30,
     marginHorizontal: -18,
   },
   sigCol: {
     width: "44%",
     marginHorizontal: 18,
-  },
-  sigHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  sigIconWrap: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: NAVY_SOFT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  sigHeaderText: {
-    fontSize: 8.5,
-    fontFamily: "NotoSans",
-    fontWeight: "bold",
-    color: NAVY,
-    letterSpacing: 1,
-  },
-  preparedBranding: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  preparedLogo: {
-    width: 30,
-    height: 30,
-    objectFit: "contain",
-    borderRadius: 3,
-    marginRight: 8,
-  },
-  preparedLogoFallback: {
-    width: 30,
-    height: 30,
-    borderRadius: 3,
-    backgroundColor: NAVY,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  preparedLogoFallbackTxt: {
-    color: GOLD,
-    fontSize: 9,
-    fontFamily: "NotoSans",
-    fontWeight: "bold",
-  },
-  preparedName: {
-    fontSize: 9,
-    fontFamily: "NotoSans",
-    fontWeight: "bold",
-    color: NAVY,
-  },
-  sigImage: {
-    height: 38,
-    objectFit: "contain",
-    marginBottom: 4,
-  },
-  sigRule: {
-    borderTopWidth: 1,
-    borderTopColor: "#8a97ad",
-    paddingTop: 5,
-  },
-  sigRuleLabel: {
-    fontSize: 7.5,
-    color: MUTED,
-    letterSpacing: 0.3,
-  },
-  sigRuleName: {
-    fontSize: 8.5,
-    fontFamily: "NotoSans",
-    fontWeight: "bold",
-    color: DARK,
-    marginTop: 1.5,
-  },
-  sigRightAlign: {
-    alignItems: "flex-end",
-  },
-  sigRightAlignRule: {
-    alignItems: "flex-end",
   },
   sigHeaderTextClean: {
     fontSize: 9,
@@ -463,17 +419,46 @@ const s = StyleSheet.create({
     fontWeight: "bold",
     color: NAVY,
     letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  sigCompanyName: {
+    fontSize: 9.5,
+    fontFamily: "NotoSans",
+    fontWeight: "bold",
+    color: NAVY,
+    marginBottom: 10,
+  },
+  sigImage: {
+    height: 38,
+    objectFit: "contain",
+    marginBottom: 6,
+  },
+  sigRuleOnly: {
+    width: "100%",
+    borderTopWidth: 1,
+    borderTopColor: "#8a97ad",
   },
   sigNameText: {
     fontSize: 9,
     fontFamily: "NotoSans",
     fontWeight: "bold",
     color: DARK,
+    marginTop: 5,
   },
-  sigRuleOnly: {
-    width: "100%",
-    borderTopWidth: 1,
-    borderTopColor: "#8a97ad",
+  // ===== ONLY for Kalkinadh.G =====
+  sigNameComicSans: {
+    fontSize: 11,
+    fontFamily: "Comic Sans MS",
+    fontWeight: "bold",
+    color: DARK,
+    marginTop: 5,
+    letterSpacing: 0.4,
+  },
+  sigRightAlign: {
+    alignItems: "flex-end",
+  },
+  sigRightAlignRule: {
+    alignItems: "flex-end",
   },
 });
 
@@ -646,39 +631,6 @@ function IconTx() {
   );
 }
 
-// Pen / Prepared by (navy)
-function IconPrepared() {
-  return (
-    <Svg width="12" height="12" viewBox="0 0 24 24">
-      <Path
-        d="M4 20l4.5-1 9-9-3.5-3.5-9 9L4 20z"
-        fill="none"
-        stroke={NAVY}
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <Path d="M14.5 5.5l3.5 3.5" stroke={NAVY} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-// Signature / client signature (navy squiggle)
-function IconSignature() {
-  return (
-    <Svg width="12" height="12" viewBox="0 0 24 24">
-      <Path
-        d="M3 18c3-3 4-7 6-7s2 6 5 6 3-5 5-6 2 7 2 7"
-        fill="none"
-        stroke={NAVY}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="3" y1="19" x2="21" y2="19" stroke={NAVY} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 // ============================================================
 // COMPONENT
 // ============================================================
@@ -704,10 +656,12 @@ export function LedgerPDF({
   viewMode?: LedgerPDFViewMode;
 }) {
   void phone; // banner already contains branding; Settings integration slot preserved
+  void logoUrl; // reserved for future use
   const isClientView = viewMode === "client";
   const isContactView = viewMode === "contact";
   const isFullView = viewMode === "full";
   const isRestricted = isClientView || isContactView;
+  void isRestricted; // preserved for future conditional logic
   const exportDate = new Date().toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
@@ -717,217 +671,296 @@ export function LedgerPDF({
   return (
     <Document title={`${ledger.project.name} - Ledger`} author={companyName}>
       <Page size="A4" style={s.page}>
-        <View style={s.pageFlow}>
-          {/* 1. HEADER BANNER */}
+        {/* =========================================================
+            FIXED REPEATING HEADER — EVERY PAGE
+            ========================================================= */}
+        <View fixed style={s.headerFixed}>
           {headerBannerUrl ? (
             <Image src={headerBannerUrl} style={s.headerBanner} />
           ) : null}
+        </View>
 
-          {/* 2 - 8. MAIN CONTENT AREA */}
-          <View style={s.content}>
-            {/* ===== PROJECT HEADER (left/right split) ===== */}
-            <View style={s.projectHeaderRow}>
-              <View style={s.projectLeft}>
-                <Text style={s.projectLedgerLabel}>PROJECT LEDGER</Text>
-                <Text style={s.projectName}>{ledger.project.name}</Text>
-                <View style={s.clientLine}>
-                  <Text style={s.clientLabel}>{isContactView ? "Contact:" : "Client:"}</Text>
-                  <Text style={s.clientValue}>{ledger.client.name}</Text>
-                </View>
-              </View>
+        {/* =========================================================
+            FIXED REPEATING FOOTER — EVERY PAGE
+            ========================================================= */}
+        <View fixed style={s.footerFixed}>
+          {footerBannerUrl ? (
+            <View wrap={false}>
+              <Image src={footerBannerUrl} style={s.footerBanner} />
+            </View>
+          ) : null}
+        </View>
 
-              <View style={s.projectRight}>
-                {/* Date */}
-                <View style={s.rightStackRow}>
-                  <View style={s.rightIconWrap}>
-                    <IconDate />
-                  </View>
-                  <View style={s.rightTextCol}>
-                    <Text style={s.rightFieldLabel}>DATE</Text>
-                    <Text style={s.rightFieldValue}>{exportDate}</Text>
-                  </View>
-                </View>
-                {/* Client or Contact */}
-                <View style={s.rightStackRow}>
-                  <View style={s.rightIconWrap}>
-                    <IconClient />
-                  </View>
-                  <View style={s.rightTextCol}>
-                    <Text style={s.rightFieldLabel}>{isContactView ? "CONTACT" : "CLIENT"}</Text>
-                    <Text style={s.rightFieldValue}>{ledger.client.name}</Text>
-                  </View>
-                </View>
-                {/* Project */}
-                <View style={s.rightStackRowLast}>
-                  <View style={s.rightIconWrap}>
-                    <IconProject />
-                  </View>
-                  <View style={s.rightTextCol}>
-                    <Text style={s.rightFieldLabel}>PROJECT</Text>
-                    <Text style={s.rightFieldValue}>
-                      {ledger.project.name}
-                    </Text>
-                  </View>
-                </View>
+        {/* =========================================================
+            DYNAMIC CONTENT AREA — flows between header & footer
+            ========================================================= */}
+        <View style={s.content}>
+          {/* ===== PROJECT HEADER (left/right split) ===== */}
+          <View style={s.projectHeaderRow}>
+            <View style={s.projectLeft}>
+              <Text style={s.projectLedgerLabel}>PROJECT LEDGER</Text>
+              <Text style={s.projectName}>{ledger.project.name}</Text>
+              <View style={s.clientLine}>
+                <Text style={s.clientLabel}>{isContactView ? "Contact:" : "Client:"}</Text>
+                <Text style={s.clientValue}>{ledger.client.name}</Text>
               </View>
             </View>
 
-            {/* Gold separator */}
-            <View style={s.goldDivider} />
-
-            {/* ===== FINANCIAL SUMMARY ===== */}
-            {isFullView ? (
-              <View style={s.summaryRow}>
-                {/* TOTAL CREDIT */}
-                <View style={s.summaryCard}>
-                  <View style={s.summaryIconLine}>
-                    <View style={[s.summaryIconBg, s.creditBg]}>
-                      <IconCredit />
-                    </View>
-                    <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
-                  </View>
-                  <Text style={[s.summaryAmount, s.creditText]}>
-                    {formatCurrency(Number(ledger.totals.credit))}
-                  </Text>
+            <View style={s.projectRight}>
+              {/* Date */}
+              <View style={s.rightStackRow}>
+                <View style={s.rightIconWrap}>
+                  <IconDate />
                 </View>
-
-                {/* TOTAL DEBIT */}
-                <View style={s.summaryCard}>
-                  <View style={s.summaryIconLine}>
-                    <View style={[s.summaryIconBg, s.debitBg]}>
-                      <IconDebit />
-                    </View>
-                    <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
-                  </View>
-                  <Text style={[s.summaryAmount, s.debitText]}>
-                    {formatCurrency(Number(ledger.totals.debit))}
-                  </Text>
+                <View style={s.rightTextCol}>
+                  <Text style={s.rightFieldLabel}>DATE</Text>
+                  <Text style={s.rightFieldValue}>{exportDate}</Text>
                 </View>
-
-                {/* BALANCE REMAINING */}
-                <View style={s.summaryCard}>
-                  <View style={s.summaryIconLine}>
-                    <View style={[s.summaryIconBg, s.balanceBg]}>
-                      <IconBalance />
-                    </View>
-                    <Text style={s.summaryLabel}>BALANCE REMAINING</Text>
-                  </View>
-                  <Text style={[s.summaryAmount, s.balanceText]}>
-                    {formatCurrency(Number(ledger.totals.balance))}
+              </View>
+              {/* Client or Contact */}
+              <View style={s.rightStackRow}>
+                <View style={s.rightIconWrap}>
+                  <IconClient />
+                </View>
+                <View style={s.rightTextCol}>
+                  <Text style={s.rightFieldLabel}>{isContactView ? "CONTACT" : "CLIENT"}</Text>
+                  <Text style={s.rightFieldValue}>{ledger.client.name}</Text>
+                </View>
+              </View>
+              {/* Project */}
+              <View style={s.rightStackRowLast}>
+                <View style={s.rightIconWrap}>
+                  <IconProject />
+                </View>
+                <View style={s.rightTextCol}>
+                  <Text style={s.rightFieldLabel}>PROJECT</Text>
+                  <Text style={s.rightFieldValue}>
+                    {ledger.project.name}
                   </Text>
                 </View>
               </View>
-            ) : isClientView ? (
-              <View style={s.summaryRow}>
-                <View style={s.summarySingle}>
-                  <View style={s.summaryIconLine}>
-                    <View style={[s.summaryIconBg, s.creditBg]}>
-                      <IconCredit />
-                    </View>
-                    <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
-                  </View>
-                  <Text style={[s.summaryAmount, s.creditText]}>
-                    {formatCurrency(Number(ledger.totals.credit))}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <View style={s.summaryRow}>
-                <View style={s.summarySingle}>
-                  <View style={s.summaryIconLine}>
-                    <View style={[s.summaryIconBg, s.debitBg]}>
-                      <IconDebit />
-                    </View>
-                    <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
-                  </View>
-                  <Text style={[s.summaryAmount, s.debitText]}>
-                    {formatCurrency(Number(ledger.totals.debit))}
-                  </Text>
-                </View>
-              </View>
-            )}
+            </View>
+          </View>
 
-            {/* ===== TRANSACTION DETAILS TITLE ===== */}
-            <View style={s.txTitleRow}>
-              <View style={s.txTitleIconWrap}>
-                <IconTx />
+          {/* Gold separator */}
+          <View style={s.goldDivider} />
+
+          {/* ===== FINANCIAL SUMMARY ===== */}
+          {isFullView ? (
+            <View style={s.summaryRow}>
+              {/* TOTAL CREDIT */}
+              <View style={s.summaryCard}>
+                <View style={s.summaryIconLine}>
+                  <View style={[s.summaryIconBg, s.creditBg]}>
+                    <IconCredit />
+                  </View>
+                  <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
+                </View>
+                <Text style={[s.summaryAmount, s.creditText]}>
+                  {formatCurrency(Number(ledger.totals.credit))}
+                </Text>
               </View>
-              <Text style={s.txTitleText}>TRANSACTION DETAILS</Text>
+
+              {/* TOTAL DEBIT */}
+              <View style={s.summaryCard}>
+                <View style={s.summaryIconLine}>
+                  <View style={[s.summaryIconBg, s.debitBg]}>
+                    <IconDebit />
+                  </View>
+                  <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
+                </View>
+                <Text style={[s.summaryAmount, s.debitText]}>
+                  {formatCurrency(Number(ledger.totals.debit))}
+                </Text>
+              </View>
+
+              {/* BALANCE REMAINING */}
+              <View style={s.summaryCard}>
+                <View style={s.summaryIconLine}>
+                  <View style={[s.summaryIconBg, s.balanceBg]}>
+                    <IconBalance />
+                  </View>
+                  <Text style={s.summaryLabel}>BALANCE REMAINING</Text>
+                </View>
+                <Text style={[s.summaryAmount, s.balanceText]}>
+                  {formatCurrency(Number(ledger.totals.balance))}
+                </Text>
+              </View>
+            </View>
+          ) : isClientView ? (
+            <View style={s.summaryRow}>
+              <View style={s.summarySingle}>
+                <View style={s.summaryIconLine}>
+                  <View style={[s.summaryIconBg, s.creditBg]}>
+                    <IconCredit />
+                  </View>
+                  <Text style={s.summaryLabel}>TOTAL CREDIT</Text>
+                </View>
+                <Text style={[s.summaryAmount, s.creditText]}>
+                  {formatCurrency(Number(ledger.totals.credit))}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={s.summaryRow}>
+              <View style={s.summarySingle}>
+                <View style={s.summaryIconLine}>
+                  <View style={[s.summaryIconBg, s.debitBg]}>
+                    <IconDebit />
+                  </View>
+                  <Text style={s.summaryLabel}>TOTAL DEBIT</Text>
+                </View>
+                <Text style={[s.summaryAmount, s.debitText]}>
+                  {formatCurrency(Number(ledger.totals.debit))}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* ===== TRANSACTION DETAILS TITLE ===== */}
+          <View style={s.txTitleRow}>
+            <View style={s.txTitleIconWrap}>
+              <IconTx />
+            </View>
+            <Text style={s.txTitleText}>TRANSACTION DETAILS</Text>
+          </View>
+
+          {/* ===== TRANSACTION TABLE ===== */}
+          <View style={s.tableOuter}>
+            <View style={s.tableHead}>
+              {isFullView ? (
+                <>
+                  <Text style={[s.th, s.colDate]}>DATE</Text>
+                  <Text style={[s.th, s.colContact]}>CONTACT</Text>
+                  <Text style={[s.th, s.colCategory]}>CATEGORY</Text>
+                  <Text style={[s.th, s.colPayment]}>PAYMENT MODE</Text>
+                  <Text style={[s.th, s.colDesc]}>DESCRIPTION</Text>
+                  <Text style={[s.th, s.colMoney]}>CREDIT (₹)</Text>
+                  <Text style={[s.th, s.colMoney]}>DEBIT (₹)</Text>
+                  <Text style={[s.th, s.colMoney]}>BALANCE (₹)</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[s.th, s.colDate6]}>DATE</Text>
+                  <Text style={[s.th, s.colContact6]}>CONTACT</Text>
+                  <Text style={[s.th, s.colCategory6]}>CATEGORY</Text>
+                  <Text style={[s.th, s.colPayment6]}>PAYMENT MODE</Text>
+                  <Text style={[s.th, s.colDesc6]}>DESCRIPTION</Text>
+                  <Text style={[s.th, s.colMoney6]}>
+                    {isClientView ? "CREDIT (₹)" : "DEBIT (₹)"}
+                  </Text>
+                </>
+              )}
             </View>
 
-            {/* ===== TRANSACTION TABLE ===== */}
-            <View style={s.tableOuter}>
-              <View style={s.tableHead}>
-                {isFullView ? (
-                  <>
-                    <Text style={[s.th, s.colDate]}>DATE</Text>
-                    <Text style={[s.th, s.colContact]}>CONTACT</Text>
-                    <Text style={[s.th, s.colCategory]}>CATEGORY</Text>
-                    <Text style={[s.th, s.colPayment]}>PAYMENT MODE</Text>
-                    <Text style={[s.th, s.colDesc]}>DESCRIPTION</Text>
-                    <Text style={[s.th, s.colMoney]}>CREDIT (₹)</Text>
-                    <Text style={[s.th, s.colMoney]}>DEBIT (₹)</Text>
-                    <Text style={[s.th, s.colMoney]}>BALANCE (₹)</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[s.th, s.colDate6]}>DATE</Text>
-                    <Text style={[s.th, s.colContact6]}>CONTACT</Text>
-                    <Text style={[s.th, s.colCategory6]}>CATEGORY</Text>
-                    <Text style={[s.th, s.colPayment6]}>PAYMENT MODE</Text>
-                    <Text style={[s.th, s.colDesc6]}>DESCRIPTION</Text>
-                    <Text style={[s.th, s.colMoney6]}>
-                      {isClientView ? "CREDIT (₹)" : "DEBIT (₹)"}
-                    </Text>
-                  </>
-                )}
-              </View>
-
-              <View style={s.tableBody}>
-                {ledger.transactions.length === 0 ? (
-                  <View style={s.emptyRow}>
-                    <Text style={s.emptyText}>No transactions recorded.</Text>
-                  </View>
-                ) : (
-                  ledger.transactions.map((t, i) => (
-                    <View
-                      key={t.id}
-                      style={
-                        i % 2 === 1 ? [s.tableRow, s.tableRowAlt] : s.tableRow
-                      }
-                      wrap={false}
-                    >
-                      {isFullView ? (
-                        <>
-                          <Text style={[s.td, s.colDate]}>
-                            {new Date(t.date).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </Text>
-                          <Text
-                            style={[s.td, s.colContact, { fontWeight: "bold" as any }]}
-                          >
-                            {t.contact.name}
-                          </Text>
-                          <View style={s.colCategory}>
-                            <View style={[s.badge, s.catBadge]}>
-                              <Text>{t.category}</Text>
-                            </View>
+            <View style={s.tableBody}>
+              {ledger.transactions.length === 0 ? (
+                <View style={s.emptyRow}>
+                  <Text style={s.emptyText}>No transactions recorded.</Text>
+                </View>
+              ) : (
+                ledger.transactions.map((t, i) => (
+                  <View
+                    key={t.id}
+                    style={
+                      i % 2 === 1 ? [s.tableRow, s.tableRowAlt] : s.tableRow
+                    }
+                    wrap={false}
+                  >
+                    {isFullView ? (
+                      <>
+                        <Text style={[s.td, s.colDate]}>
+                          {new Date(t.date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </Text>
+                        <Text
+                          style={[s.td, s.colContact, { fontWeight: "bold" as any }]}
+                        >
+                          {t.contact.name}
+                        </Text>
+                        <View style={s.colCategory}>
+                          <View style={[s.badge, s.catBadge]}>
+                            <Text>{t.category}</Text>
                           </View>
-                          <View style={s.colPayment}>
-                            <View style={[s.badge, s.payBadge]}>
-                              <Text>{formatPaymentLabel(t)}</Text>
-                            </View>
+                        </View>
+                        <View style={s.colPayment}>
+                          <View style={[s.badge, s.payBadge]}>
+                            <Text>{formatPaymentLabel(t)}</Text>
                           </View>
-                          <Text style={[s.td, s.colDesc]}>
-                            {t.description || "—"}
-                          </Text>
+                        </View>
+                        <Text style={[s.td, s.colDesc]}>
+                          {t.description || "—"}
+                        </Text>
+                        <Text
+                          style={[
+                            s.td,
+                            s.colMoney,
+                            { fontWeight: "bold" as any, color: GREEN_DARK },
+                          ]}
+                        >
+                          {Number(t.credit)
+                            ? formatCurrency(Number(t.credit))
+                            : "—"}
+                        </Text>
+                        <Text
+                          style={[
+                            s.td,
+                            s.colMoney,
+                            { fontWeight: "bold" as any, color: RED },
+                          ]}
+                        >
+                          {Number(t.debit)
+                            ? formatCurrency(Number(t.debit))
+                            : "—"}
+                        </Text>
+                        <Text
+                          style={[
+                            s.td,
+                            s.colMoney,
+                            {
+                              fontWeight: "bold" as any,
+                              color: NAVY_DARK,
+                            },
+                          ]}
+                        >
+                          {formatCurrency(Number(t.runningBalance))}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[s.td, s.colDate6]}>
+                          {new Date(t.date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </Text>
+                        <Text
+                          style={[s.td, s.colContact6, { fontWeight: "bold" as any }]}
+                        >
+                          {t.contact.name}
+                        </Text>
+                        <View style={s.colCategory6}>
+                          <View style={[s.badge, s.catBadge]}>
+                            <Text>{t.category}</Text>
+                          </View>
+                        </View>
+                        <View style={s.colPayment6}>
+                          <View style={[s.badge, s.payBadge]}>
+                            <Text>{formatPaymentLabel(t)}</Text>
+                          </View>
+                        </View>
+                        <Text style={[s.td, s.colDesc6]}>
+                          {t.description || "—"}
+                        </Text>
+                        {isClientView ? (
                           <Text
                             style={[
                               s.td,
-                              s.colMoney,
+                              s.colMoney6,
                               { fontWeight: "bold" as any, color: GREEN_DARK },
                             ]}
                           >
@@ -935,10 +968,11 @@ export function LedgerPDF({
                               ? formatCurrency(Number(t.credit))
                               : "—"}
                           </Text>
+                        ) : (
                           <Text
                             style={[
                               s.td,
-                              s.colMoney,
+                              s.colMoney6,
                               { fontWeight: "bold" as any, color: RED },
                             ]}
                           >
@@ -946,117 +980,51 @@ export function LedgerPDF({
                               ? formatCurrency(Number(t.debit))
                               : "—"}
                           </Text>
-                          <Text
-                            style={[
-                              s.td,
-                              s.colMoney,
-                              {
-                                fontWeight: "bold" as any,
-                                color: NAVY_DARK,
-                              },
-                            ]}
-                          >
-                            {formatCurrency(Number(t.runningBalance))}
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text style={[s.td, s.colDate6]}>
-                            {new Date(t.date).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </Text>
-                          <Text
-                            style={[s.td, s.colContact6, { fontWeight: "bold" as any }]}
-                          >
-                            {t.contact.name}
-                          </Text>
-                          <View style={s.colCategory6}>
-                            <View style={[s.badge, s.catBadge]}>
-                              <Text>{t.category}</Text>
-                            </View>
-                          </View>
-                          <View style={s.colPayment6}>
-                            <View style={[s.badge, s.payBadge]}>
-                              <Text>{formatPaymentLabel(t)}</Text>
-                            </View>
-                          </View>
-                          <Text style={[s.td, s.colDesc6]}>
-                            {t.description || "—"}
-                          </Text>
-                          {isClientView ? (
-                            <Text
-                              style={[
-                                s.td,
-                                s.colMoney6,
-                                { fontWeight: "bold" as any, color: GREEN_DARK },
-                              ]}
-                            >
-                              {Number(t.credit)
-                                ? formatCurrency(Number(t.credit))
-                                : "—"}
-                            </Text>
-                          ) : (
-                            <Text
-                              style={[
-                                s.td,
-                                s.colMoney6,
-                                { fontWeight: "bold" as any, color: RED },
-                              ]}
-                            >
-                              {Number(t.debit)
-                                ? formatCurrency(Number(t.debit))
-                                : "—"}
-                            </Text>
-                          )}
-                        </>
-                      )}
-                    </View>
-                  ))
-                )}
-              </View>
-            </View>
-
-            {/* Flexible spacer to absorb vertical space, push sig+footer down */}
-            <View style={s.spacer} />
-
-            {/* ===== PREPARED BY / {CLIENT OR CONTACT} SIGNATURE ===== */}
-            <View style={s.sigArea} wrap={false}>
-              {/* LEFT: Prepared By (always INCHX INTERIO / company identity) */}
-              <View style={[s.sigCol]}>
-                <Text style={s.sigHeaderTextClean}>Prepared By</Text>
-
-                <View style={{ height: 12 }} />
-
-                {signatureUrl && (
-                  <Image src={signatureUrl} style={s.sigImage} />
-                )}
-
-                <Text style={s.sigNameText}>{companyName}</Text>
-              </View>
-
-              {/* RIGHT: Client Signature — OR — Contact Signature (conditional) */}
-              <View style={[s.sigCol, s.sigRightAlign]}>
-                <Text style={[s.sigHeaderTextClean, { textAlign: "right" }]}>
-                  {isContactView ? "Contact Signature" : "Client Signature"}
-                </Text>
-
-                <View style={{ height: signatureUrl ? 38 + 22 : 50 }} />
-
-                <View style={[s.sigRuleOnly, s.sigRightAlignRule]} />
-                <Text style={[s.sigNameText, { textAlign: "right", marginTop: 6 }]}>{ledger.client.name}</Text>
-              </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                ))
+              )}
             </View>
           </View>
 
-          {/* 9. FOOTER BANNER — final page bottom */}
-          {footerBannerUrl ? (
-            <View wrap={false}>
-              <Image src={footerBannerUrl} style={s.footerBanner} />
+          {/* ===== PREPARED BY / {CLIENT OR CONTACT} SIGNATURE =====
+              Keep signature section together across page breaks  */}
+          <View style={s.sigArea} wrap={false}>
+            {/* LEFT: Prepared By — INCHX INTERIO / Signature / Kalkinadh.G */}
+            <View style={s.sigCol}>
+              <Text style={s.sigHeaderTextClean}>Prepared By</Text>
+              <Text style={s.sigCompanyName}>{companyName}</Text>
+
+              {signatureUrl ? (
+                <Image src={signatureUrl} style={s.sigImage} />
+              ) : (
+                <View style={{ height: 38 }} />
+              )}
+
+              <View style={s.sigRuleOnly} />
+              {/* =========================================================
+                  ONLY "Kalkinadh.G" uses Comic Sans MS.
+                  Every other Text element uses NotoSans (default fontFamily).
+                  ========================================================= */}
+              <Text style={s.sigNameComicSans}>Kalkinadh.G</Text>
             </View>
-          ) : null}
+
+            {/* RIGHT: Client Signature — OR — Contact Signature */}
+            <View style={[s.sigCol, s.sigRightAlign]}>
+              <Text style={[s.sigHeaderTextClean, { textAlign: "right" }]}>
+                {isContactView ? "Contact Signature" : "Client Signature"}
+              </Text>
+
+              <View style={{ height: 38 + 10 + 9.5 }} />
+
+              <View style={[s.sigRuleOnly, s.sigRightAlignRule]} />
+              <Text style={[s.sigNameText, { textAlign: "right" }]}>
+                {ledger.client.name}
+              </Text>
+            </View>
+          </View>
         </View>
       </Page>
     </Document>

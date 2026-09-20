@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Contact,
   Banknote,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useSettings } from "../hooks/use-settings";
@@ -23,6 +24,7 @@ import { useUser } from "../hooks/use-user";
 const navItems = [
   { href: "/", label: "Overview", icon: Home, match: (p: string) => p === "/", adminOnly: true },
   { href: "/projects", label: "Projects", icon: FolderKanban, match: (p: string) => p === "/projects" || p.startsWith("/projects/") },
+  { href: "/progress", label: "Progress", icon: TrendingUp, match: (p: string) => p.startsWith("/progress") },
   { href: "/schedule", label: "Schedule", icon: CalendarDays, match: (p: string) => p.startsWith("/schedule"), adminOrManager: true },
   { href: "/clients", label: "Clients", icon: Building2, match: (p: string) => p.startsWith("/clients") },
   { href: "/contacts", label: "Contractors", icon: Users, match: (p: string) => p.startsWith("/contacts") },
