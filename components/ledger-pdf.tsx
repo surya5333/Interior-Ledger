@@ -445,15 +445,6 @@ const s = StyleSheet.create({
     color: DARK,
     marginTop: 5,
   },
-  // ===== ONLY for Kalkinadh.G =====
-  sigNameComicSans: {
-    fontSize: 11,
-    fontFamily: "Comic Sans MS",
-    fontWeight: "bold",
-    color: DARK,
-    marginTop: 5,
-    letterSpacing: 0.4,
-  },
   sigRightAlign: {
     alignItems: "flex-end",
   },
@@ -992,7 +983,7 @@ export function LedgerPDF({
           {/* ===== PREPARED BY / {CLIENT OR CONTACT} SIGNATURE =====
               Keep signature section together across page breaks  */}
           <View style={s.sigArea} wrap={false}>
-            {/* LEFT: Prepared By — INCHX INTERIO / Signature / Kalkinadh.G */}
+            {/* LEFT: Prepared By — INCHX INTERIO / Signature */}
             <View style={s.sigCol}>
               <Text style={s.sigHeaderTextClean}>Prepared By</Text>
               <Text style={s.sigCompanyName}>{companyName}</Text>
@@ -1004,11 +995,6 @@ export function LedgerPDF({
               )}
 
               <View style={s.sigRuleOnly} />
-              {/* =========================================================
-                  ONLY "Kalkinadh.G" uses Comic Sans MS.
-                  Every other Text element uses NotoSans (default fontFamily).
-                  ========================================================= */}
-              <Text style={s.sigNameComicSans}>Kalkinadh.G</Text>
             </View>
 
             {/* RIGHT: Client Signature — OR — Contact Signature */}
