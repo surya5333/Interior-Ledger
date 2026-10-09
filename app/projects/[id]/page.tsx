@@ -1,11 +1,12 @@
 "use client";
 
 import { use, useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown, Share2, UserRound } from "lucide-react";
+import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown, Share2, UserRound, UserPlus } from "lucide-react";
+import { AutocompleteCombobox } from "../../../components/ui/autocomplete-combobox";
 
 import { useLedger, useCreateTransaction, useUpdateTransaction, useDeleteTransaction, LedgerTransaction } from "../../../hooks/use-ledger";
 import { useContacts } from "../../../hooks/use-contacts";
@@ -145,7 +146,7 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
   const suppressWorkflowSyncRef = useRef(false);
 
   // Form for the sticky bottom bar
-  const { register, handleSubmit, reset, setValue, getValues, watch, formState: { errors } } = useForm<TransactionFormData>({
+  const { register, handleSubmit, reset, setValue, getValues, watch, control, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema) as any,
     defaultValues: getDefaultTransactionValues(),
   });
@@ -920,30 +921,85 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
                   ) : (
                     <div className="min-w-0 space-y-1.5">
                       <Label htmlFor="contactName" className="text-xs">Contact</Label>
-                      <Input id="contactName" list="contact-list" value={watch("contactName") ?? ""} {...register("contactName")} placeholder="Name..." className="h-10 text-sm min-w-0 w-full" error={!!errors.contactName} />
-                      <datalist id="contact-list">
-                        {contacts.map((c) => <option key={c.id} value={c.name} />)}
-                      </datalist>
+                      <Controller
+                        name="contactName"
+                        control={control}
+                        render={({ field }) => (
+                          <AutocompleteCombobox
+                            options={contacts}
+                            getOptionLabel={(c) => `${c.name} • ${c.category}`}
+                            getOptionValue={(c) => `${c.name}||${c.category}`}
+                            value={field.value ?? ""}
+                            onChange={(text) => field.onChange(text)}
+                            onSelect={(c) => {
+                              setValue("contactName", c.name, { shouldDirty: true, shouldValidate: true });
+                              setValue("category", c.category, { shouldDirty: true, shouldValidate: true });
+                              lastContactWorkflowRef.current.contactName = c.name;
+                              lastContactWorkflowRef.current.category = c.category;
+                            }}
+                            onCreate={(text) => {
+                              setValue("contactName", text, { shouldDirty: true, shouldValidate: true });
+                              lastContactWorkflowRef.current.contactName = text;
+                            }}
+                            placeholder="Name..."
+                            error={!!errors.contactName}
+                            allowCreate={true}
+                            createLabel={(text) => (
+                              <>
+                                <UserPlus className="size-4 shrink-0" />
+                                Use &ldquo;{text}&rdquo; (new contact)
+                              </>
+                            )}
+                            emptyLabel="No matching contacts"
+                            className="h-10 text-sm min-w-0 w-full"
+                            inputName="quickentry_contact_field"
+                            inputAutoComplete="section-quickentry contact"
+                          />
+                        )}
+                      />
                     </div>
                   )}
 
                   <div className="min-w-0 space-y-1.5">
                     <Label htmlFor="category" className="text-xs">Category</Label>
-                    <Input
-                      id="category"
-                      list={paymentFromClient ? undefined : "category-list"}
-                      value={watch("category") ?? ""}
-                      {...register("category")}
-                      placeholder="e.g. Labor"
-                      readOnly={paymentFromClient}
-                      className={cn("h-10 text-sm min-w-0 w-full", paymentFromClient && "bg-[#FAFAF8] cursor-not-allowed")}
-                      error={!!errors.category}
+                    <Controller
+                      name="category"
+                      control={control}
+                      render={({ field }) => (
+                        <AutocompleteCombobox
+                          options={uniqueCategories.map((c) => ({ value: c }))}
+                          getOptionLabel={(o) => o.value}
+                          getOptionValue={(o) => o.value}
+                          value={field.value ?? ""}
+                          onChange={(text) => {
+                            field.onChange(text);
+                            lastContactWorkflowRef.current.category = text;
+                          }}
+                          onSelect={(o) => {
+                            setValue("category", o.value, { shouldDirty: true, shouldValidate: true });
+                            lastContactWorkflowRef.current.category = o.value;
+                          }}
+                          onCreate={(text) => {
+                            setValue("category", text, { shouldDirty: true, shouldValidate: true });
+                            lastContactWorkflowRef.current.category = text;
+                          }}
+                          placeholder="e.g. Labor"
+                          error={!!errors.category}
+                          readOnly={paymentFromClient}
+                          allowCreate={true}
+                          createLabel={(text) => (
+                            <>
+                              <Plus className="size-4 shrink-0" />
+                              Use &ldquo;{text}&rdquo; (new category)
+                            </>
+                          )}
+                          emptyLabel="No matching categories"
+                          className={cn("h-10 text-sm min-w-0 w-full", paymentFromClient && "bg-[#FAFAF8] cursor-not-allowed")}
+                          inputName="quickentry_category_field"
+                          inputAutoComplete="section-quickentry category"
+                        />
+                      )}
                     />
-                    {!paymentFromClient ? (
-                      <datalist id="category-list">
-                        {uniqueCategories.map((c) => <option key={c} value={c} />)}
-                      </datalist>
-                    ) : null}
                   </div>
 
                   <div className="min-w-0 space-y-1.5">
