@@ -32,6 +32,7 @@ model Project {
   createdAt    DateTime      @default(now()) @map("created_at")
   client       Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   transactions Transaction[]
+  visits       Visit[]
 
   @@index([clientId])
   @@index([createdAt])
@@ -207,4 +208,19 @@ model ScheduleEvent {
   updatedAt DateTime      @updatedAt @map("updated_at")
 
   @@index([date])
+}
+
+model Visit {
+  id             String   @id @default(cuid())
+  projectId      String   @map("project_id")
+  date           DateTime
+  visitName      String   @map("visit_name")
+  description    String?
+  sequenceNumber Int      @map("sequence_number")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sequenceNumber])
+  @@index([projectId, date])
 }

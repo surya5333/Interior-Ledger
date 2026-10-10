@@ -5,7 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown, Share2, UserRound, UserPlus } from "lucide-react";
+import { Download, Plus, MoreHorizontal, Pencil, Trash2, Lock, Unlock, ChevronUp, ChevronDown, Share2, UserRound, UserPlus, CalendarDays } from "lucide-react";
 import { AutocompleteCombobox } from "../../../components/ui/autocomplete-combobox";
 
 import { useLedger, useCreateTransaction, useUpdateTransaction, useDeleteTransaction, LedgerTransaction } from "../../../hooks/use-ledger";
@@ -13,6 +13,13 @@ import { useContacts } from "../../../hooks/use-contacts";
 import { useSettings } from "../../../hooks/use-settings";
 import { useLockProject } from "../../../hooks/use-projects";
 import { useUser } from "../../../hooks/use-user";
+import {
+  useProjectVisits,
+  useCreateProjectVisit,
+  useUpdateProjectVisit,
+  useDeleteProjectVisit,
+  Visit as ProjectVisit,
+} from "../../../hooks/use-project-visits";
 import { CategoryBadge } from "../../../components/category-badge";
 import { PaymentModeBadge } from "../../../components/payment-mode-badge";
 import { PageHeader } from "../../../components/page-header";
@@ -87,6 +94,21 @@ const transactionSchema = z
   });
 type TransactionFormData = z.infer<typeof transactionSchema>;
 
+const visitSchema = z.object({
+  date: z.string().min(1, "Date is required"),
+  visitName: z.string().trim().min(1, "Visit Name is required.").max(200, "Visit Name must be 200 characters or fewer."),
+  description: z.string().trim().max(2000, "Description must be 2000 characters or fewer.").optional().or(z.literal("")),
+});
+type VisitFormData = z.infer<typeof visitSchema>;
+
+function getDefaultVisitValues(): VisitFormData {
+  return {
+    date: new Date().toISOString().slice(0, 10),
+    visitName: "",
+    description: "",
+  };
+}
+
 function getDefaultTransactionValues(clientName = ""): TransactionFormData {
   return {
     paymentFromClient: false,
@@ -125,6 +147,10 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
   const updateMutation = useUpdateTransaction(id);
   const deleteMutation = useDeleteTransaction(id);
   const lockMutation = useLockProject(id);
+  const { data: visits = [], isLoading: visitsLoading } = useProjectVisits(id);
+  const createVisitMutation = useCreateProjectVisit(id);
+  const updateVisitMutation = useUpdateProjectVisit(id);
+  const deleteVisitMutation = useDeleteProjectVisit(id);
 
   const isOwner = user?.role === "ADMIN";
   const isLocked = ledger?.project.isLocked ?? false;
@@ -137,6 +163,10 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
   const [uploadingProof, setUploadingProof] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(true);
+  const [isVisitsOpen, setIsVisitsOpen] = useState(false);
+  const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [deleteVisitId, setDeleteVisitId] = useState<string | null>(null);
   const quickEntryRef = useRef<HTMLDivElement | null>(null);
   const lastContactWorkflowRef = useRef<Pick<TransactionFormData, "contactName" | "category" | "type">>({
     contactName: "",
@@ -150,6 +180,113 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
     resolver: zodResolver(transactionSchema) as any,
     defaultValues: getDefaultTransactionValues(),
   });
+
+  const {
+    register: registerVisit,
+    handleSubmit: handleSubmitVisit,
+    reset: resetVisitForm,
+    setValue: setVisitValue,
+    watch: watchVisit,
+    formState: { errors: visitErrors, isSubmitting: visitSubmittingClient },
+  } = useForm<VisitFormData>({
+    resolver: zodResolver(visitSchema) as any,
+    defaultValues: getDefaultVisitValues(),
+  });
+
+  const editingVisit = useMemo<ProjectVisit | null>(() => {
+    if (!editingVisitId) return null;
+    return visits.find((v) => v.id === editingVisitId) ?? null;
+  }, [editingVisitId, visits]);
+
+  const proposedNextVisitName = useMemo(() => {
+    if (editingVisit) return editingVisit.visitName;
+    const maxSeq = visits.reduce<number>((acc, v) => Math.max(acc, v.sequenceNumber ?? 0), 0);
+    return `Visit ${maxSeq + 1}`;
+  }, [visits, editingVisit]);
+
+  useEffect(() => {
+    if (!editingVisit) {
+      // For create mode, set default date + suggested name only when form is opened and name is blank
+      if (isVisitFormOpen) {
+        const currentName = (watchVisit("visitName") || "").trim();
+        if (!currentName) {
+          setVisitValue("visitName", proposedNextVisitName, { shouldDirty: false, shouldValidate: false });
+        }
+        const currentDate = watchVisit("date");
+        if (!currentDate) {
+          setVisitValue("date", new Date().toISOString().slice(0, 10), { shouldDirty: false, shouldValidate: false });
+        }
+      }
+      return;
+    }
+    // Populate edit mode values from existing visit
+    setVisitValue("date", editingVisit.date ? new Date(editingVisit.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10), { shouldDirty: false, shouldValidate: false });
+    setVisitValue("visitName", editingVisit.visitName ?? "", { shouldDirty: false, shouldValidate: false });
+    setVisitValue("description", editingVisit.description ?? "", { shouldDirty: false, shouldValidate: false });
+  }, [editingVisit, isVisitFormOpen, proposedNextVisitName, watchVisit]);
+
+  const openCreateVisit = () => {
+    if (isLocked) {
+      toast.error("Project is locked. Cannot add visit.");
+      return;
+    }
+    resetVisitForm(getDefaultVisitValues());
+    setEditingVisitId(null);
+    setIsVisitFormOpen(true);
+  };
+
+  const openEditVisit = (visit: ProjectVisit) => {
+    if (isLocked) {
+      toast.error("Project is locked. Cannot edit visit.");
+      return;
+    }
+    setEditingVisitId(visit.id);
+    setIsVisitFormOpen(true);
+    resetVisitForm({
+      date: visit.date ? new Date(visit.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      visitName: visit.visitName ?? "",
+      description: visit.description ?? "",
+    });
+  };
+
+  const cancelVisitForm = () => {
+    setIsVisitFormOpen(false);
+    setEditingVisitId(null);
+    resetVisitForm(getDefaultVisitValues());
+  };
+
+  const onVisitSubmit = (data: VisitFormData) => {
+    if (isLocked) {
+      toast.error("Project is locked. Cannot modify visits.");
+      return;
+    }
+    const payload = {
+      date: data.date,
+      visitName: data.visitName || proposedNextVisitName,
+      description: data.description ? data.description : (null as string | null),
+    };
+    if (editingVisitId) {
+      updateVisitMutation.mutate({ visitId: editingVisitId, ...payload }, {
+        onSuccess: () => {
+          toast.success("Visit updated successfully.");
+          cancelVisitForm();
+        },
+        onError: (err: any) => {
+          toast.error(err.message || "Failed to update visit.");
+        },
+      });
+    } else {
+      createVisitMutation.mutate(payload, {
+        onSuccess: () => {
+          toast.success("Visit added successfully.");
+          cancelVisitForm();
+        },
+        onError: (err: any) => {
+          toast.error(err.message || "Failed to add visit.");
+        },
+      });
+    }
+  };
   
   const entryType = watch("type");
   const paymentFromClient = watch("paymentFromClient");
@@ -631,6 +768,10 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
           <UserRound className="size-4 mr-2" />
           Share to Contact
         </Button>
+        <Button variant="secondary" onClick={() => setIsVisitsOpen((v) => !v)}>
+          <CalendarDays className="size-4 mr-2" />
+          Visits
+        </Button>
         {isOwner && (
           isLocked ? (
             <Button variant="secondary" onClick={handleLockToggle} loading={lockMutation.isPending}>
@@ -675,6 +816,167 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
           { label: "Balance", value: `₹${new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Number(ledger.totals.balance))}`, color: "balance" },
         ]}
       />
+
+      {isVisitsOpen && (
+        <div className="rounded-xl border border-border bg-white shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <h3 className="font-semibold text-text text-sm uppercase tracking-wider">Visits</h3>
+            <button
+              type="button"
+              onClick={() => setIsVisitsOpen(false)}
+              aria-label="Collapse Visits"
+              className="shrink-0 size-8 inline-flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-muted/40 transition-colors"
+            >
+              <ChevronUp className="size-4" />
+            </button>
+          </div>
+
+          <div className="p-4 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={openCreateVisit}
+                disabled={isLocked || isVisitFormOpen}
+              >
+                <Plus className="size-4 mr-1.5" />
+                Add Visit
+              </Button>
+              {isLocked && (
+                <span className="text-xs text-muted flex items-center gap-1">
+                  <Lock className="size-3" />
+                  Project is locked — view only
+                </span>
+              )}
+            </div>
+
+            {isVisitFormOpen && (
+              <form onSubmit={handleSubmitVisit(onVisitSubmit)} className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="visit-date" className="text-xs">Date</Label>
+                    <Input
+                      id="visit-date"
+                      type="date"
+                      {...registerVisit("date")}
+                      value={watchVisit("date") ?? ""}
+                      className="h-10 text-sm w-full"
+                      error={!!visitErrors.date}
+                    />
+                    {visitErrors.date && <p className="text-xs text-danger">{visitErrors.date.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="visit-name" className="text-xs">Visit Name</Label>
+                    <Input
+                      id="visit-name"
+                      {...registerVisit("visitName")}
+                      value={watchVisit("visitName") ?? ""}
+                      placeholder="Visit 4"
+                      className="h-10 text-sm w-full"
+                      error={!!visitErrors.visitName}
+                    />
+                    {visitErrors.visitName && <p className="text-xs text-danger">{visitErrors.visitName.message}</p>}
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-3 space-y-1.5">
+                    <Label htmlFor="visit-description-full" className="text-xs">Description</Label>
+                    <textarea
+                      id="visit-description-full"
+                      {...registerVisit("description")}
+                      value={watchVisit("description") ?? ""}
+                      placeholder="Enter visit details..."
+                      rows={3}
+                      className={cn(
+                        "w-full rounded-md border bg-white px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary",
+                        visitErrors.description ? "border-danger" : "border-border"
+                      )}
+                    />
+                    {visitErrors.description && <p className="text-xs text-danger">{visitErrors.description.message}</p>}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={cancelVisitForm}>Cancel</Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    loading={createVisitMutation.isPending || updateVisitMutation.isPending || visitSubmittingClient}
+                    disabled={isLocked}
+                  >
+                    {editingVisitId ? "Save Changes" : "Save Visit"}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            <div className="overflow-hidden rounded-lg border border-border">
+              <DataTable>
+                <DataTableHeader>
+                  <DataTableHeaderRow>
+                    <DataTableHead className="min-w-[140px]">Date</DataTableHead>
+                    <DataTableHead className="min-w-[180px]">Visit Name</DataTableHead>
+                    <DataTableHead>Description</DataTableHead>
+                    <DataTableHead align="right" className="min-w-[100px]">Actions</DataTableHead>
+                  </DataTableHeaderRow>
+                </DataTableHeader>
+                <DataTableBody>
+                  {visitsLoading ? (
+                    <DataTableEmpty colSpan={4}>Loading visits...</DataTableEmpty>
+                  ) : visits.length === 0 ? (
+                    <DataTableEmpty colSpan={4}>
+                      {isVisitFormOpen ? (
+                        "Fill the form above to add the first visit."
+                      ) : (
+                        "No visits added yet."
+                      )}
+                    </DataTableEmpty>
+                  ) : (
+                    visits.map((v) => (
+                      <DataTableRow key={v.id}>
+                        <DataTableCell className="text-muted whitespace-nowrap">
+                          {new Date(v.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                        </DataTableCell>
+                        <DataTableCell className="font-medium">
+                          {v.visitName}
+                        </DataTableCell>
+                        <DataTableCell className="text-muted text-sm">
+                          <div className="line-clamp-2" title={v.description ?? ""}>
+                            {v.description || "—"}
+                          </div>
+                        </DataTableCell>
+                        <DataTableCell align="right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isLocked}>
+                                <MoreHorizontal className="size-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => openEditVisit(v)}
+                                disabled={isLocked}
+                              >
+                                <Pencil className="size-4 mr-2 text-muted" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                destructive
+                                onClick={() => setDeleteVisitId(v.id)}
+                                disabled={isLocked}
+                              >
+                                <Trash2 className="size-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </DataTableCell>
+                      </DataTableRow>
+                    ))
+                  )}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <SearchBar
@@ -1122,6 +1424,29 @@ export default function ProjectLedgerPage({ params }: { params: Promise<{ id: st
         confirmLabel="Lock Project"
         onConfirm={confirmLock}
         loading={lockMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!deleteVisitId}
+        onOpenChange={(open) => !open && setDeleteVisitId(null)}
+        title="Delete Visit"
+        description="Are you sure you want to delete this visit? This action cannot be undone."
+        confirmLabel="Delete Visit"
+        onConfirm={() => {
+          if (deleteVisitId) {
+            deleteVisitMutation.mutate(deleteVisitId, {
+              onSuccess: () => {
+                setDeleteVisitId(null);
+                toast.success("Visit deleted successfully.");
+              },
+              onError: (err: any) => {
+                toast.error(err.message || "Failed to delete visit.");
+                setDeleteVisitId(null);
+              },
+            });
+          }
+        }}
+        loading={deleteVisitMutation.isPending}
       />
     </div>
   );

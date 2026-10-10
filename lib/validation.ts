@@ -89,3 +89,25 @@ export const createTransactionSchema = z
 export const contactSearchSchema = z.object({
   search: z.string().trim().max(120).default(""),
 });
+
+export const createVisitSchema = z.object({
+  date: z.coerce.date(),
+  visitName: z.string().trim().min(1, "Visit Name is required.").max(200, "Visit Name must be 200 characters or fewer."),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Description must be 2000 characters or fewer.")
+    .optional()
+    .transform((value) => value || null),
+});
+
+export const updateVisitSchema = z.object({
+  date: z.coerce.date().optional(),
+  visitName: z.string().trim().min(1, "Visit Name is required.").max(200, "Visit Name must be 200 characters or fewer.").optional(),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Description must be 2000 characters or fewer.")
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value || null)),
+});
